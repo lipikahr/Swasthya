@@ -35,6 +35,13 @@ INSTALLED_APPS = [
     # Project apps
     "apps.core",
     "apps.accounts",
+    "apps.nutrition",
+    "apps.profiles",
+    "apps.targets",
+    "apps.meals",
+    "apps.progress",
+    "apps.conversations",
+    "apps.agent",
 ]
 
 MIDDLEWARE = [
@@ -109,6 +116,11 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
+
+# Optional. When this is empty, the text agent uses the rules provider.
+# Browser storage of these tokens is still an open decision.
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.5-flash")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Swasthya API",

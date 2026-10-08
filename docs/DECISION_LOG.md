@@ -106,5 +106,63 @@ Do not start the next product phase until the current phase is verified.
 
 ### Constraints
 
-Refresh-token browser storage, timezone handling, the embedding model, speech-to-text, object storage, and image processing remain undecided.
+Refresh-token browser storage, timezone handling, speech-to-text for uploaded audio, object storage, and image processing remain open. The first client stores tokens in session storage, and the first embedding model is `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`. Both are replaceable. See Decision 004.
 Host port 5433 for PostgreSQL is a local development accommodation so Compose can run beside an existing PostgreSQL install. It does not change the database or the in-network port.
+
+---
+
+## Decision 003 — Text Agent Provider Fallback
+
+**Date:** 2026-10-08
+
+**Section:** Agent
+
+**Status:** DECIDED
+
+### Decision
+
+The text agent runs as a LangGraph workflow inside Django. If `GEMINI_API_KEY` is set, Gemini extracts the foods and quantities. If it is empty, a rules provider reads clear sentences such as "I ate 2 idlis for breakfast."
+
+The verified dataset and the calculation service still produce the nutrition numbers. The provider only identifies the food, quantity, and unit.
+
+Access and refresh tokens are returned in the JSON body. How a browser stores them is still undecided.
+
+### Reason
+
+Local development has to log a clear meal without an external key, and the provider has to be replaceable.
+
+### Constraints
+
+Do not treat the rules provider as a general nutrition expert.
+Do not invent a gram weight for bowl, plate, or glass.
+
+---
+
+## Decision 004 — Initial Embeddings, Voice Transcripts, and Temporary Token Storage
+
+**Date:** 2026-10-08
+
+**Section:** Search, voice, and the browser client
+
+**Status:** DECIDED for the first usable version. Each piece stays replaceable.
+
+### Decision
+
+Food-name search may use `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` through fastembed. Vectors are 384 dimensions and are stored with pgvector. This model does not use retrieval prefixes. A vector neighbor is only a clarification candidate. It never becomes a logged food by itself.
+
+Voice logging accepts a transcript produced by the device speech recognizer and sends it through the same text workflow with `input_type` voice. The server does not transcribe uploaded audio.
+
+Image identification stays unavailable. The API returns `not_available` and does not guess a food or a quantity.
+
+The React client keeps access and refresh tokens in `sessionStorage`. That is a temporary client choice so the app can be used in this tab. It is not the final browser-storage decision, and it is not an httpOnly cookie design.
+
+### Reason
+
+The product needs search beyond exact names, a voice path that does not pretend to hear audio, and a client that can call the API. The vision provider and the permanent token design are still open.
+
+### Constraints
+
+Do not treat a vector neighbor as a confirmed food.
+Do not transcribe audio on the server until a speech-to-text provider is chosen.
+Do not infer nutrition from an image.
+Do not describe `sessionStorage` as the settled storage design.

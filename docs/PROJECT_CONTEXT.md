@@ -1544,4 +1544,12 @@ Backend Phase 1 is verified on this machine.
 
 The Anuvaad workbook is stored locally under `data/raw/` and is not part of the Git repository.
 
-Not started: nutrition ingestion, authentication endpoints, profile, targets, meals, dashboard, streaks, conversations, agent, and frontend.
+Nutrition data is loaded from the local Anuvaad workbook into PostgreSQL. `GET /api/foods/search/` and `GET /api/foods/{food_code}/` read that data. Gram and kilogram quantities use the per-100g values. A named serving is used only when the workbook provides that serving unit. Fifteen serving rows were skipped because `servings_unit` was missing.
+
+Food-name embeddings use `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` and pgvector. A neighbor is a clarification candidate only. `python manage.py load_embeddings` fills the table after the workbook load.
+
+Backend application endpoints are implemented: authentication, profile, targets, meals, dashboard, daily progress, streaks, conversations, and text chat. `POST /api/agent/voice/` accepts a device transcript and logs through the same workflow. Uploaded audio is not transcribed. `POST /api/agent/image/` returns not available and does not guess a quantity.
+
+The React client in `frontend/` covers sign-in, profile, today, meals, targets, chat, and settings. Tokens are kept in `sessionStorage` for this first client. That storage choice is temporary.
+
+Still open: server speech-to-text, image identification, object storage, timezone handling, and the final browser token design.

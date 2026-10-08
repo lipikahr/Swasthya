@@ -17,11 +17,21 @@ Copy `.env.example` to `.env` in the repository root. Docker Compose and Django 
 docker compose up -d db redis
 cd backend
 .\.venv\Scripts\python.exe manage.py migrate
+.\.venv\Scripts\python.exe manage.py load_nutrition
+.\.venv\Scripts\python.exe manage.py load_embeddings
 .\.venv\Scripts\python.exe manage.py runserver
 ```
 
 The API is at `http://127.0.0.1:8000/`. Health is `GET /api/health/`. API docs are at `/api/docs/`.
 
+The React app proxies `/api` to that server:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
 Compose publishes PostgreSQL on host port 5433 so it can run beside a local PostgreSQL already using port 5432. Inside Compose the database host remains `db` on port 5432.
 
-Do not commit `.env` or the raw nutrition workbook.
+Do not commit `.env` or the raw nutrition workbook. Image identification is not available until a vision provider is configured.
