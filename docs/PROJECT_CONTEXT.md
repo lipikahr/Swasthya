@@ -19,7 +19,7 @@
 
 **Primary IDE:** Cursor
 
-**Development Model:** Four specialized Claude agents working under centralized coordination.
+**Development Model:** Cursor is the implementation environment. Backend, nutrition, frontend, and agent remain logical ownership boundaries inside one codebase. See Decision 002.
 
 ---
 
@@ -1528,3 +1528,20 @@ security rules
 API responsibilities
 agent responsibilities
 non-negotiable project constraints
+
+46. CURRENT STATUS
+
+**Date:** 2026-10-08
+
+Backend Phase 1 is verified on this machine.
+
+- Django migrations are applied to the Docker PostgreSQL volume `swasthya_pgdata`.
+- The application database is `nutrition`.
+- Compose publishes PostgreSQL on host port 5433. A local PostgreSQL 18 service already uses host port 5432. Inside Compose the database host remains `db` on port 5432.
+- `GET /api/health/` returns `{"status":"ok","database":true}`.
+- `/api/schema/` and `/api/docs/` respond.
+- The eight foundation tests passed against SQLite and against PostgreSQL.
+
+The Anuvaad workbook is stored locally under `data/raw/` and is not part of the Git repository.
+
+Not started: nutrition ingestion, authentication endpoints, profile, targets, meals, dashboard, streaks, conversations, agent, and frontend.

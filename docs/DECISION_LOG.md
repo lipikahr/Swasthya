@@ -76,3 +76,35 @@ Backend Configuration
 Claude 1 Workstream
 Claude 2 Workstream
 Claude 4 Workstream
+
+---
+
+## Decision 002 — Cursor Implementation Environment
+
+**Date:** 2026-10-08
+
+**Section:** Development model
+
+**Status:** DECIDED
+
+### Decision
+
+Swasthya is implemented in Cursor. When an AI model is used inside Cursor for this project, use an available Grok or Composer model.
+
+Backend, nutrition, frontend, and agent remain logical ownership boundaries inside one codebase. They are not separate implementation conversations.
+
+### Reason
+
+The project is no longer developed through four separate Claude conversations. One repository and one implementation environment avoid duplicate models and conflicting changes.
+
+### Implementation implications
+
+Do not create a second implementation of a responsibility that already has an owner.
+Do not rebuild the existing backend foundation.
+Do not change the technology stack.
+Do not start the next product phase until the current phase is verified.
+
+### Constraints
+
+Refresh-token browser storage, timezone handling, the embedding model, speech-to-text, object storage, and image processing remain undecided.
+Host port 5433 for PostgreSQL is a local development accommodation so Compose can run beside an existing PostgreSQL install. It does not change the database or the in-network port.

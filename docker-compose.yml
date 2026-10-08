@@ -1,0 +1,50 @@
+# Local development infrastructure.
+# Docker Compose reads the ROOT `.env` automatically (copy .env.example to .env
+# first) and substitutes ${VARIABLES} below. Nothing here relies on env_file for
+# substitution.
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in the root .env}
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in the root .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the root .env}
+    ports:
+      # Host port 5433. This machine already has PostgreSQL 18 on 5432.
+      # Inside Compose the service is still `db:5432`.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # $$ is resolved inside the container, from the environment above.
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine           # for Celery later
+    ports:
+      - "6379:6379"
+
+  backend:
+    build:
+      context: ./backend
+    # Passes the other runtime settings (DJANGO_SECRET_KEY, JWT_*, ...) to Django.
+    env_file: .env
+    environment:
+      # Overrides DATABASE_URL from .env (which points at localhost): inside
+      # Docker the database host is the service name `db`. Same credentials as
+      # the db service above, taken from the same root .env.
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
