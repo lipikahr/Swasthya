@@ -90,7 +90,7 @@ export function LandingPage() {
         </ol>
       </section>
 
-      <section className="landing-band is-beige" aria-labelledby="verified-heading">
+      <section className="landing-band is-sage" aria-labelledby="verified-heading">
         <div className="band-inner story-split reverse">
           <div className="stack">
             <p className="eyebrow">Nutrition based on verified data</p>

@@ -2,8 +2,11 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "./App.tsx";
+import { applyAppearance, readStoredAppearance } from "./appearance.ts";
 import { SessionProvider } from "./session.tsx";
 import "./index.css";
+
+applyAppearance(readStoredAppearance());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

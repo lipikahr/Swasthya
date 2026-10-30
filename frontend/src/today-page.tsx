@@ -101,7 +101,7 @@ export function TodayPage() {
           return (
             <div key={consumedKey}>
               <p>{label} · {amount(data.progress.consumed[consumedKey])} / {data.target ? amount(data.target[targetKey as keyof NonNullable<Dashboard["target"]>]) : "not set"} {unit}</p>
-              <div className="bar" aria-hidden="true"><i style={{ width: `${width ?? 0}%` }} /></div>
+              <div className={`bar is-${consumedKey}`} aria-hidden="true"><i style={{ width: `${width ?? 0}%` }} /></div>
             </div>
           );
         })}

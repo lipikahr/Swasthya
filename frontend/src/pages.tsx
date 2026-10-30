@@ -179,7 +179,7 @@ export function DashboardPage() {
                 {unit} eaten · target {target ? showAmount(target) : "not set"} · remaining {remaining ? showAmount(remaining) : "not set"}
               </p>
               {width == null ? null : (
-                <div className="bar" aria-hidden="true">
+                <div className={`bar is-${consumedKey}`} aria-hidden="true">
                   <span style={{ width: `${width}%` }} />
                 </div>
               )}

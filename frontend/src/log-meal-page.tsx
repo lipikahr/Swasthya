@@ -619,7 +619,7 @@ export function LogMealPage() {
                         <p className="muted">{amount(item.quantity)} {item.unit}{item.provenance === "user_provided" ? " · User-provided nutrition" : ""}</p>
                         <div className="nutrient-pills">
                           {PREVIEW_KEYS.map(([key, label, nutrientUnit]) => (
-                            <span key={key}>{label} {nutrientAmount(key, item.nutrition[key])} {nutrientUnit}</span>
+                            <span key={key} data-nutrient={key}>{label} {nutrientAmount(key, item.nutrition[key])} {nutrientUnit}</span>
                           ))}
                         </div>
                       </li>

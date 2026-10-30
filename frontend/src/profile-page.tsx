@@ -409,7 +409,7 @@ export function ProfilePage() {
               <p className="eyebrow">Suggestion, not saved</p>
               <div className="nutrient-pills">
                 {TARGET_FIELDS.map(([key, label, unit]) => (
-                  <span key={key}>{label} {amount(suggestion[key])} {unit}</span>
+                  <span key={key} data-nutrient={key}>{label} {amount(suggestion[key])} {unit}</span>
                 ))}
               </div>
               {current?.source === "user_customized" && (

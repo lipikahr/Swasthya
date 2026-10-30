@@ -40,7 +40,7 @@ export function LandingParallax() {
   }, []);
 
   return (
-    <section ref={rootRef} className="landing-band is-beige parallax-band" aria-labelledby="parallax-heading">
+    <section ref={rootRef} className="landing-band is-sage parallax-band" aria-labelledby="parallax-heading">
       <div className="band-inner parallax-scene">
         <div className="parallax-copy">
           <p className="eyebrow">From your plate to your progress</p>
