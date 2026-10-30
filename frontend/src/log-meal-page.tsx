@@ -1,14 +1,16 @@
-import { useEffect, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { api, ApiError } from "./api";
+import { CameraIcon, MicIcon, SendIcon, StopIcon } from "./icons";
+import { SuggestionList, useFoodSuggestions, type FoodSuggestion } from "./food-autocomplete";
 import { CHAT_COPY, displayAssistantMessage } from "./chat-copy";
 import {
   GREETINGS,
   PROGRESS_PATH,
   applyFoodSuggestion,
-  autocompleteQuery,
   displayKcal,
   formatDisplayedKcal,
+  structureAssistantReply,
   recordingSupported,
   shouldStickToBottom,
   speechErrorText,
@@ -106,19 +108,25 @@ function nutrientAmount(key: string, value: string | null | undefined) {
   return key === "energy_kcal" ? displayKcal(value) : amount(value);
 }
 
-function MicIcon({ recording }: { recording: boolean }) {
+function ReplyBody({ content }: { content: string }) {
+  const reply = structureAssistantReply(content);
   return (
-    <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" focusable="false">
-      {recording ? (
-        <rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" />
-      ) : (
-        <>
-          <path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z" fill="currentColor" />
-          <path d="M6 11a6 6 0 0 0 12 0" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-          <path d="M12 17v3" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-        </>
-      )}
-    </svg>
+    <div className="reply-body">
+      {reply.title ? <p className="reply-title">{reply.title}</p> : null}
+      {reply.rows?.length ? (
+        <dl className="reply-facts">
+          {reply.rows.map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+      {reply.lines.map((line, index) => (
+        <p key={`${index}-${line}`}>{line}</p>
+      ))}
+    </div>
   );
 }
 
@@ -131,10 +139,11 @@ export function LogMealPage() {
   const [params] = useSearchParams();
   const [text, setText] = useState("");
   const [side, setSide] = useState<{ remaining: string | null; goal_label: string } | null>(null);
-  const [listenError, setListenError] = useState("");
-  const [autoplay, setAutoplay] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState("en");
+  const [photoBusy, setPhotoBusy] = useState(false);
   const composerRef = useRef<HTMLInputElement>(null);
+  const photoRef = useRef<HTMLInputElement>(null);
+  const listId = useId();
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [turns, setTurns] = useState<Array<{ role: string; content: string }>>([]);
   const [chatReady, setChatReady] = useState(false);
@@ -148,11 +157,12 @@ export function LogMealPage() {
   const [listening, setListening] = useState(false);
   const [speechError, setSpeechError] = useState("");
   const [showLatest, setShowLatest] = useState(false);
-  const [suggestions, setSuggestions] = useState<Array<{ food_code: string; food_name: string }>>([]);
   const [mealSuggestions, setMealSuggestions] = useState<MealSuggestion[]>([]);
   const [allergyNote, setAllergyNote] = useState("");
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const [activeSuggestion, setActiveSuggestion] = useState(0);
+  const [arrowed, setArrowed] = useState(false);
+  const { items: suggestions, query: suggestQuery, suppress, dismiss } = useFoodSuggestions(text, !listening && !chatBusy);
   const voiceSupported = recordingSupported();
   const sendingRef = useRef(false);
   const confirmingRef = useRef(false);
@@ -166,7 +176,6 @@ export function LogMealPage() {
   const recordLimitRef = useRef<number | null>(null);
   const MAX_RECORD_MS = 28000;
   const wantListenRef = useRef(false);
-  const suggestSeq = useRef(0);
 
   function scrollToLatest() {
     stickRef.current = true;
@@ -188,27 +197,9 @@ export function LogMealPage() {
   }, []);
 
   useEffect(() => {
-    const query = autocompleteQuery(text);
-    if (!query || listening) {
-      setSuggestions([]);
-      return;
-    }
-    const seq = ++suggestSeq.current;
-    const timer = window.setTimeout(() => {
-      api<{ results: Array<{ food_code: string; food_name: string }> }>(
-        `/api/foods/search/?q=${encodeURIComponent(query)}&suggest=1&limit=5`,
-      )
-        .then((body) => {
-          if (seq !== suggestSeq.current) return;
-          setSuggestions(body.results.slice(0, 5));
-          setActiveSuggestion(0);
-        })
-        .catch(() => {
-          if (seq === suggestSeq.current) setSuggestions([]);
-        });
-    }, 300);
-    return () => window.clearTimeout(timer);
-  }, [text, listening]);
+    setActiveSuggestion(0);
+    setArrowed(false);
+  }, [suggestions]);
 
   useEffect(() => {
     if (params.get("compose") === "1") composerRef.current?.focus();
@@ -218,12 +209,11 @@ export function LogMealPage() {
     api<{ progress: { remaining: Record<string, string | null> | null; goal_label: string } }>("/api/dashboard/")
       .then((body) => setSide({ remaining: body.progress.remaining?.calories ?? null, goal_label: body.progress.goal_label }))
       .catch(() => setSide(null));
-    api<{ autoplay_replies?: boolean; preferred_language?: string }>("/api/profile/")
+    api<{ preferred_language?: string }>("/api/profile/")
       .then((profile) => {
-        setAutoplay(Boolean(profile.autoplay_replies));
         setPreferredLanguage(profile.preferred_language || "en");
       })
-      .catch(() => setAutoplay(false));
+      .catch(() => setPreferredLanguage("en"));
   }, []);
 
   useEffect(() => {
@@ -303,7 +293,7 @@ export function LogMealPage() {
       return;
     }
     setSpeechError("");
-    setSuggestions([]);
+    dismiss();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -341,25 +331,37 @@ export function LogMealPage() {
     }
   }
 
-  function chooseSuggestion(foodName: string) {
-    setText(applyFoodSuggestion(text, foodName));
-    setSuggestions([]);
+  function chooseSuggestion(food: FoodSuggestion) {
+    const next = applyFoodSuggestion(text, food.food_name, suggestQuery || food.matched_alias || undefined);
+    suppress(next);
+    setText(next);
+    setArrowed(false);
   }
 
   function onComposerKey(event: KeyboardEvent<HTMLInputElement>) {
-    if (!suggestions.length) return;
-    if (event.key === "ArrowDown") {
+    if (event.key === "ArrowDown" && suggestions.length) {
       event.preventDefault();
+      setArrowed(true);
       setActiveSuggestion((current) => (current + 1) % suggestions.length);
-    } else if (event.key === "ArrowUp") {
-      event.preventDefault();
-      setActiveSuggestion((current) => (current - 1 + suggestions.length) % suggestions.length);
-    } else if (event.key === "Enter") {
-      event.preventDefault();
-      chooseSuggestion(suggestions[activeSuggestion]?.food_name ?? "");
-    } else if (event.key === "Escape") {
-      setSuggestions([]);
+      return;
     }
+    if (event.key === "ArrowUp" && suggestions.length) {
+      event.preventDefault();
+      setArrowed(true);
+      setActiveSuggestion((current) => (current - 1 + suggestions.length) % suggestions.length);
+      return;
+    }
+    if (event.key === "Tab" && suggestions.length) {
+      event.preventDefault();
+      chooseSuggestion(suggestions[activeSuggestion] ?? suggestions[0]);
+      return;
+    }
+    if (event.key === "Enter" && suggestions.length && arrowed) {
+      event.preventDefault();
+      chooseSuggestion(suggestions[activeSuggestion] ?? suggestions[0]);
+      return;
+    }
+    if (event.key === "Escape") dismiss();
   }
 
   function appendAssistant(content: string) {
@@ -371,39 +373,12 @@ export function LogMealPage() {
     });
   }
 
-  async function listenTo(content: string) {
-    setListenError("");
-    try {
-      const headers = new Headers();
-      const access = sessionStorage.getItem("swasthya.access");
-      if (access) headers.set("Authorization", `Bearer ${access}`);
-      headers.set("Content-Type", "application/json");
-      const response = await fetch("/api/agent/speak/", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ text: content, language: preferredLanguage }),
-      });
-      if (!response.ok) {
-        setListenError(
-          response.status === 422
-            ? "Spoken playback is not available for this language. The written reply is still available."
-            : "Listen unavailable. The written reply is still available.",
-        );
-        return;
-      }
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      await audio.play();
-    } catch {
-      setListenError("Listen unavailable.");
-    }
-  }
-
   async function onImage(file: File | undefined) {
     if (!file) return;
     const body = new FormData();
     body.append("image", file);
+    setPhotoBusy(true);
+    setChatError("");
     try {
       const result = await api<{ candidates: string[] }>("/api/agent/image/", { method: "POST", body });
       const names = result.candidates.filter(Boolean);
@@ -415,6 +390,9 @@ export function LogMealPage() {
       setChatError(`Candidate foods: ${names.join(", ")}. Confirm the identity, quantity, and meal before logging.`);
     } catch (err) {
       setChatError(messageFrom(err));
+    } finally {
+      setPhotoBusy(false);
+      if (photoRef.current) photoRef.current.value = "";
     }
   }
 
@@ -511,7 +489,7 @@ export function LogMealPage() {
     sendingRef.current = true;
     stickRef.current = true;
     setText("");
-    setSuggestions([]);
+    dismiss();
     setChatBusy(true);
     setChatError("");
     setSpeechError("");
@@ -532,7 +510,6 @@ export function LogMealPage() {
       setEditingMeal(false);
       const spoken = displayAssistantMessage(reply.status, reply.message);
       appendAssistant(spoken);
-      if (autoplay) void listenTo(spoken);
     } catch (err) {
       const content = messageFrom(err);
       setChatError(content);
@@ -565,10 +542,7 @@ export function LogMealPage() {
           </article>
           {turns.map((turn, index) => (
             <article key={`${turn.role}-${index}`} className={`bubble ${turn.role === "user" ? "user" : "assistant"}`}>
-              <p>{formatDisplayedKcal(turn.content)}</p>
-              {turn.role === "assistant" ? (
-                <button type="button" className="ghost" onClick={() => void listenTo(turn.content)}>Listen</button>
-              ) : null}
+              {turn.role === "assistant" ? <ReplyBody content={turn.content} /> : <p>{turn.content}</p>}
             </article>
           ))}
           {confirmation ? (
@@ -697,33 +671,21 @@ export function LogMealPage() {
           <button type="button" className="soft latest-button" onClick={scrollToLatest}>Latest message</button>
         ) : null}
         {voiceNote ? <p className="muted voice-status" role="status">{voiceNote}</p> : null}
-        {listenError ? <p className="muted" role="status">{listenError}</p> : null}
+        {photoBusy ? <p className="muted voice-status" role="status">Identifying the food in the photo…</p> : null}
         <div className="composer-wrap">
-          {suggestions.length ? (
-            <ul className="food-suggest" role="listbox" aria-label="Food suggestions">
-              {suggestions.map((food, index) => (
-                <li key={food.food_code}>
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={index === activeSuggestion}
-                    className={index === activeSuggestion ? "is-active" : ""}
-                    onMouseDown={(event) => event.preventDefault()}
-                    onClick={() => chooseSuggestion(food.food_name)}
-                  >
-                    {food.food_name}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <SuggestionList id={listId} items={suggestions} active={activeSuggestion} onPick={chooseSuggestion} onHover={setActiveSuggestion} />
           <form className="composer" onSubmit={sendChat}>
             <label className="visually-hidden">Describe what you ate</label>
             <input
               ref={composerRef}
               value={text}
               aria-label="Describe what you ate"
+              role="combobox"
+              aria-expanded={suggestions.length > 0}
+              aria-controls={listId}
               aria-autocomplete="list"
+              aria-activedescendant={suggestions.length ? `${listId}-${activeSuggestion}` : undefined}
+              autoComplete="off"
               placeholder={CHAT_COPY.placeholder}
               onChange={(event) => setText(event.target.value)}
               onKeyDown={onComposerKey}
@@ -731,20 +693,30 @@ export function LogMealPage() {
             />
             <button
               type="button"
-              className={`mic-button ${listening ? "is-recording" : "ghost"}`}
+              className={`icon-button ${listening ? "is-recording" : "ghost"}`}
               aria-pressed={listening}
               aria-label={listening ? "Stop voice input" : "Start voice input"}
               title={listening ? "Stop voice input" : "Start voice input"}
               disabled={chatBusy || !chatReady}
               onClick={listening ? stopListening : startListening}
             >
-              <MicIcon recording={listening} />
+              {listening ? <StopIcon size={24} /> : <MicIcon size={24} />}
             </button>
-            <label className="ghost image-upload">
-              Photo
-              <input className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void onImage(event.target.files?.[0])} />
-            </label>
-            <button type="submit" disabled={chatBusy || !chatReady}>Send</button>
+            <button
+              type="button"
+              className="icon-button ghost"
+              aria-label="Add a photo of your food"
+              title="Add a photo of your food"
+              disabled={chatBusy || !chatReady || photoBusy}
+              onClick={() => photoRef.current?.click()}
+            >
+              <CameraIcon size={24} />
+            </button>
+            <input ref={photoRef} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void onImage(event.target.files?.[0])} />
+            <button type="submit" className="icon-send" disabled={chatBusy || !chatReady} aria-label="Send">
+              <SendIcon size={24} />
+              Send
+            </button>
           </form>
         </div>
       </section>
@@ -761,7 +733,7 @@ export function LogMealPage() {
     </div>
     <aside className="card stack coach-side">
       <p className="eyebrow">Today</p>
-      <p>{side ? `${side.goal_label}. ${side.remaining == null ? "Remaining unknown" : `${side.remaining} kcal remaining`}.` : "Loading today’s progress…"}</p>
+      <p>{side ? `${side.goal_label}. ${side.remaining == null ? "Remaining unknown" : `${displayKcal(side.remaining)} kcal remaining`}.` : "Loading today’s progress…"}</p>
       <Link to="/diary">Open diary</Link>
       <p className="eyebrow">Try asking</p>
       {EXAMPLE_PROMPTS.map((prompt) => (

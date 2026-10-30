@@ -1,4 +1,4 @@
-import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppShell } from "./app-shell";
 import { AuthScreen, ResetPasswordPage } from "./auth-pages";
 import { AuthLayout } from "./health-carousel";
@@ -16,8 +16,9 @@ import { SiteNav } from "./site-nav";
 import { TodayPage } from "./today-page";
 
 function SiteFrame() {
+  const { pathname } = useLocation();
   return (
-    <div className="shell">
+    <div className={pathname === "/" ? "shell is-landing" : "shell"}>
       <SiteNav />
       <main>
         <Outlet />

@@ -172,6 +172,21 @@ class FoodEmbedding(models.Model):
         ]
 
 
+class FoodProfile(models.Model):
+    """Catalogue metadata used by the day-plan generator. Not a nutrition source."""
+
+    food = models.OneToOneField(Food, on_delete=models.CASCADE, related_name="profile")
+    course = models.CharField(max_length=16, default="any")
+    region = models.CharField(max_length=16, default="any")
+    diet_class = models.CharField(max_length=16, default="veg")
+    is_sweet = models.BooleanField(default=False)
+    is_fried = models.BooleanField(default=False)
+    cuisine_tags = models.JSONField(default=list, blank=True)
+
+    def __str__(self) -> str:
+        return f"{self.food.food_code} {self.course}/{self.region}"
+
+
 class FoodServingNutrition(NutrientValues):
     """Per-serving nutrients. Created only when the dataset names the serving unit."""
 

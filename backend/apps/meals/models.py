@@ -73,8 +73,16 @@ class PlannedSlot(models.Model):
         SWAPPED = "swapped", "Swapped"
         LOGGED = "logged", "Logged"
 
+    class Source(models.TextChoices):
+        GENERATED = "generated", "Generated"
+        MANUAL = "manual", "Manual"
+        LIKED = "liked", "Liked"
+
     plan = models.ForeignKey(DayPlan, on_delete=models.CASCADE, related_name="slots")
     slot = models.CharField(max_length=16, choices=Slot.choices)
+    label = models.CharField(max_length=80, blank=True, default="")
+    position = models.PositiveSmallIntegerField(default=0)
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.GENERATED)
     food = models.ForeignKey("nutrition.Food", null=True, blank=True, on_delete=models.PROTECT)
     user_food = models.ForeignKey("nutrition.UserFood", null=True, blank=True, on_delete=models.PROTECT)
     quantity = models.DecimalField(max_digits=12, decimal_places=3)
@@ -84,5 +92,5 @@ class PlannedSlot(models.Model):
     logged_meal = models.ForeignKey("meals.Meal", null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["plan", "slot"], name="one_slot_per_day_plan")]
-        ordering = ["id"]
+        ordering = ["slot", "position", "id"]
+        indexes = [models.Index(fields=["plan", "slot"])]

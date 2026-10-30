@@ -4,6 +4,12 @@ import { Logo } from "./logo";
 import { useSession } from "./session";
 
 const AUTH_PATHS = ["/login", "/register", "/forgot", "/reset-password"];
+const EXPLORE = [
+  ["#opening", "How it works"],
+  ["#nutrition", "Nutrition"],
+  ["#how", "Coach"],
+  ["#questions", "Questions"],
+] as const;
 
 export function SiteNav() {
   const { user, ready, logout } = useSession();
@@ -11,10 +17,13 @@ export function SiteNav() {
   const onAuthPage = AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
   const [open, setOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [exploreOpen, setExploreOpen] = useState(false);
+  const onHome = pathname === "/";
   const navRef = useRef<HTMLElement>(null);
   const close = () => {
     setOpen(false);
     setAccountOpen(false);
+    setExploreOpen(false);
   };
 
   useEffect(() => {
@@ -46,9 +55,21 @@ export function SiteNav() {
           <span />
           <span />
         </button>
-        <nav id="site-nav" ref={navRef} className={open ? "open" : undefined}>
+        <nav id="site-nav" ref={navRef} className={open ? "open" : undefined} aria-label="Site">
           <NavLink to="/" end onClick={close}>Home</NavLink>
           <NavLink to="/log" onClick={close}>Log a Meal</NavLink>
+          <div className="explore">
+            <button className="explore-button" type="button" aria-expanded={exploreOpen} onClick={() => setExploreOpen((value) => !value)}>
+              Explore
+            </button>
+            {exploreOpen ? (
+              <div className="explore-menu">
+                {EXPLORE.map(([hash, label]) => (
+                  <a key={hash} href={onHome ? hash : `/${hash}`} onClick={close}>{label}</a>
+                ))}
+              </div>
+            ) : null}
+          </div>
           {ready && user ? (
             <div className="account">
               <button className="account-button" type="button" aria-expanded={accountOpen} onClick={() => setAccountOpen((value) => !value)}>

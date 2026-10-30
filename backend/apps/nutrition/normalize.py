@@ -40,11 +40,21 @@ def normalize_alias(text: str) -> str:
     return value.casefold() if value.isascii() else value
 
 
-def food_tokens(text: str) -> list[str]:
-    normalized = normalize_alias(text)
-    tokens = [token for token in re.findall(r"[^\W_]+", normalized, flags=re.UNICODE) if len(token) >= 2]
-    return tokens
+_WORD = re.compile(r"[A-Za-z0-9\u0900-\u0D7F\u200c\u200d]+")
 
 
 def has_indic_letters(text: str) -> bool:
     return bool(re.search(r"[\u0900-\u0D7F]", text or ""))
+
+
+def food_tokens(text: str) -> list[str]:
+    """Keep Indic clusters intact, including vowel signs and viramas."""
+    normalized = normalize_alias(text)
+    tokens = []
+    for token in _WORD.findall(normalized):
+        if has_indic_letters(token):
+            if token:
+                tokens.append(token)
+        elif len(token) >= 2:
+            tokens.append(token)
+    return tokens

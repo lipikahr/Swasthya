@@ -10,10 +10,11 @@ from apps.progress.goal import GOAL_ABOVE, GOAL_MET, day_goal_status
 from apps.profiles.models import UserProfile
 
 _SUGGEST = re.compile(
-    r"(suggest|recommend|confused|what (?:can|should) i eat|what to eat|options|complete today|need more protein|vegetarian meal|for lunch|for breakfast|for dinner)",
+    r"(suggest|recommend|confused|what (?:can|should) i eat|what to eat|options|complete today|need more protein|vegetarian meal|for lunch|for breakfast|for dinner|"
+    r"ಸಲಹೆ|सुझाव|பரிந்துரை)",
     re.IGNORECASE,
 )
-_LOG = re.compile(r"\b(i ate|i had|i eaten|log )\b", re.IGNORECASE)
+_LOG = re.compile(r"\b(i ate|i had|i eaten|log )\b|ತಿಂದೆ|खाई|சாப்பிட்ட", re.IGNORECASE)
 
 
 def is_suggestion_request(text: str) -> bool:

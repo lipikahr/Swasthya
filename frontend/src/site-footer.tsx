@@ -10,6 +10,13 @@ const NAV_LINKS = [
   { to: "/settings", label: "Settings" },
 ] as const;
 
+const PAGE_LINKS = [
+  { to: "/#opening", label: "How it works" },
+  { to: "/#nutrition", label: "Nutrition" },
+  { to: "/#how", label: "Coach" },
+  { to: "/#questions", label: "Questions" },
+] as const;
+
 export function SiteFooter() {
   const { pathname } = useLocation();
   const compact = pathname === "/log" || AUTH_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`));
@@ -27,9 +34,10 @@ export function SiteFooter() {
   }
 
   return (
-    <footer className="site-footer">
+    <footer className="site-footer is-full">
       <div className="site-footer-inner">
-        <div className="site-footer-grid">
+        <div className="site-footer-panel">
+          <div className="site-footer-grid">
           <section className="site-footer-brand" aria-labelledby="footer-brand-heading">
             <Link to="/" className="site-footer-brand-link" aria-label="Swasthya home">
               <Logo size={48} />
@@ -56,6 +64,18 @@ export function SiteFooter() {
               ))}
             </ul>
           </nav>
+          <nav className="site-footer-nav" aria-labelledby="footer-page-heading">
+            <h2 id="footer-page-heading" className="site-footer-heading">
+              On this page
+            </h2>
+            <ul>
+              {PAGE_LINKS.map((item) => (
+                <li key={item.to}>
+                  <Link to={item.to}>{item.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
           <section className="site-footer-about" aria-labelledby="footer-about-heading">
             <h2 id="footer-about-heading" className="site-footer-heading">
               About Swasthya
@@ -69,6 +89,7 @@ export function SiteFooter() {
         <div className="site-footer-bar">
           <p>© {year} Swasthya. All rights reserved.</p>
           <p>Built for healthier everyday choices.</p>
+        </div>
         </div>
       </div>
     </footer>

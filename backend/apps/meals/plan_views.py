@@ -5,8 +5,19 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.profiles.models import UserProfile
+
 from .models import DayPlan, PlannedSlot
-from .plan_services import accept_swap, generate_day_plan, get_or_none_plan, seed_log_this, serialize_plan, swap_slot
+from .plan_services import (
+    accept_swap,
+    add_slot,
+    generate_day_plan,
+    get_or_none_plan,
+    remove_slot,
+    seed_log_this,
+    serialize_plan,
+    swap_slot,
+)
 
 
 def _day(request):
@@ -21,11 +32,35 @@ def _day(request):
 
 class DayPlanView(APIView):
     def get(self, request):
-        return Response(serialize_plan(get_or_none_plan(request.user, _day(request))))
+        profile = UserProfile.objects.filter(user=request.user).first()
+        return Response(serialize_plan(get_or_none_plan(request.user, _day(request)), profile=profile))
 
     def post(self, request):
         include = str(request.data.get("include_user_foods") or "1") not in {"0", "false"}
         return Response(generate_day_plan(request.user, _day(request), include_user_foods=include), status=201)
+
+
+class DayPlanSlotView(APIView):
+    def post(self, request):
+        return Response(
+            add_slot(
+                request.user,
+                on_date=_day(request),
+                slot=str(request.data.get("slot") or ""),
+                food_code=str(request.data.get("food_code") or ""),
+                user_food_id=request.data.get("user_food_id") or None,
+                quantity=str(request.data.get("quantity") or "1"),
+                unit=str(request.data.get("unit") or "serving"),
+                label=str(request.data.get("label") or ""),
+            ),
+            status=201,
+        )
+
+
+class DayPlanSlotDetailView(APIView):
+    def delete(self, request, slot_id):
+        slot = get_object_or_404(PlannedSlot.objects.select_related("plan"), pk=slot_id, plan__user=request.user)
+        return Response(remove_slot(request.user, slot))
 
 
 class DayPlanSwapView(APIView):
@@ -42,7 +77,8 @@ class DayPlanSwapView(APIView):
             user_food_id=request.data.get("user_food_id"),
         )
         plan = DayPlan.objects.prefetch_related("slots__food", "slots__user_food").get(pk=slot.plan_id)
-        return Response(serialize_plan(plan))
+        profile = UserProfile.objects.filter(user=request.user).first()
+        return Response(serialize_plan(plan, profile=profile))
 
 
 class DayPlanLogView(APIView):

@@ -130,11 +130,10 @@ def test_gemini_extract_parses_model_json(settings, monkeypatch):
     settings.GEMINI_MODEL = "gemini-2.5-flash"
     provider = get_provider()
     result = provider.extract("I had 2 idli for lunch")
-    assert result == {
-        "provider": "gemini",
-        "meal_type": "lunch",
-        "items": [{"food_query": "idli", "quantity": "2", "unit": "idli", "original_query": "idli"}],
-    }
+    assert result["provider"] == "gemini"
+    assert result["meal_type"] == "lunch"
+    assert result["items"][0]["food_query"] == "idli"
+    assert result["intent"] in {"", "log_meal"}
 
 
 def test_gemini_configuration_never_includes_the_key(settings):

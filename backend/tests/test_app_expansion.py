@@ -152,6 +152,55 @@ def test_snack_confirm_and_plan_does_not_count(api_client, make_user, tmp_path):
 
 
 @pytest.mark.django_db
+def test_plan_manual_extra_and_south_filter(api_client, make_user, tmp_path):
+    from apps.nutrition.food_profile import classify_name
+    from apps.profiles.models import UserProfile
+
+    _load(tmp_path)
+    user = make_user(email="plan-pref@example.com")
+    _auth(api_client, user)
+    UserProfile.objects.create(
+        user=user,
+        date_of_birth="1990-01-01",
+        sex="female",
+        height_cm="160",
+        weight_kg="60",
+        activity_level="sedentary",
+        goal="lose",
+        diet_pattern="vegetarian",
+        preferred_cuisines=["South Indian"],
+        likes=["idli"],
+    )
+    api_client.post(
+        "/api/targets/customize/",
+        {"calories": "1800", "protein_g": "70", "carbohydrates_g": "200", "fat_g": "60", "fibre_g": "25"},
+        format="json",
+    )
+    added = api_client.post(
+        "/api/day-plans/slots/",
+        {"date": "2026-05-01", "slot": "breakfast", "food_code": "IDLI", "quantity": "2", "unit": "piece", "label": "Early"},
+        format="json",
+    )
+    assert added.status_code == 201
+    extra = api_client.post(
+        "/api/day-plans/slots/",
+        {"date": "2026-05-01", "slot": "breakfast", "food_code": "IDLI", "quantity": "1", "unit": "piece", "label": "Second breakfast"},
+        format="json",
+    )
+    assert extra.status_code == 201, extra.json()
+    breakfast = [row for row in extra.json()["slots"] if row["slot"] == "breakfast"]
+    assert len(breakfast) == 2
+    generated = api_client.post("/api/day-plans/", {"date": "2026-05-01"}, format="json")
+    assert generated.status_code == 201
+    regions = {classify_name(row["food_name"])["region"] for row in generated.json()["slots"]}
+    assert "north" not in regions
+    sweets = {classify_name("Gulab jamun")["is_sweet"]}
+    assert True in sweets
+    removed = api_client.delete(f"/api/day-plans/slots/{breakfast[0]['id']}/")
+    assert removed.status_code == 200
+
+
+@pytest.mark.django_db
 def test_image_and_speak_unconfigured(api_client, make_user, settings):
     settings.OPENROUTER_API_KEY = ""
     settings.SARVAM_API_KEY = ""

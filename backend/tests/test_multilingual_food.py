@@ -234,3 +234,27 @@ def test_rules_provider_still_extracts_english_idlis():
     result = RulesProvider().extract("I ate 2 idlis for breakfast")
     assert result["items"][0]["food_query"] == "idlis"
     assert result["meal_type"] == "breakfast"
+
+
+def test_indic_and_english_split_two_foods():
+    from apps.nutrition.normalize import food_tokens
+
+    kannada = extract_mentions("ಎರಡು ಇಡ್ಲಿ ಮತ್ತು ಒಂದು ಬಟ್ಟಲು ಸಾಂಬಾರ್")
+    assert len(kannada["items"]) >= 2
+    names = " ".join(item["food_query"] for item in kannada["items"])
+    assert "ಇಡ್ಲಿ" in names
+    assert "ಸಾಂಬಾರ್" in names
+    english = extract_mentions("I ate two idlis and a bowl of sambar")
+    assert len(english["items"]) >= 2
+    assert food_tokens("ಇಡ್ಲಿ") == ["ಇಡ್ಲಿ"]
+
+
+@pytest.mark.django_db
+def test_suggest_matches_indic_alias(api_client, make_user, tmp_path):
+    _load(tmp_path)
+    user = make_user(email="suggest-ml@example.com")
+    _auth(api_client, user)
+    reply = api_client.get("/api/foods/search/", {"q": "ಇಡ್ಲಿ", "suggest": "1", "limit": "5"})
+    assert reply.status_code == 200
+    names = [row["food_name"] for row in reply.json()["results"]]
+    assert "Idli" in names

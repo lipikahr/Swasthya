@@ -78,7 +78,49 @@ _UNIT_ALIASES = {
     "ಕೆಜಿ": "kg",
     "किलो": "kg",
     "किलोग्राम": "kg",
+    "katori": "katori",
+    "katoris": "katori",
+    "bowl": "bowl",
+    "bowls": "bowl",
+    "piece": "piece",
+    "pieces": "piece",
+    "cup": "cup",
+    "cups": "cup",
+    "tablespoon": "tablespoon",
+    "tablespoons": "tablespoon",
+    "tbsp": "tablespoon",
+    "teaspoon": "teaspoon",
+    "teaspoons": "teaspoon",
+    "tsp": "teaspoon",
+    "glass": "glass",
+    "glasses": "glass",
+    "plate": "plate",
+    "plates": "plate",
+    "roti": "roti",
+    "rotis": "roti",
+    "slice": "slice",
+    "slices": "slice",
+    "serving": "serving",
+    "servings": "serving",
+    "mug": "mug",
+    "ladle": "ladle",
+    "fistful": "fistful",
+    "handful": "handful",
+    "ಬಟ್ಟಲು": "bowl",
+    "ಕಪ್": "cup",
+    "ತುಂಡು": "piece",
+    "ಕಟೋರಿ": "katori",
+    "கிண்ணம்": "bowl",
+    "கப்": "cup",
+    "துண்டு": "piece",
+    "कटोरी": "katori",
+    "कटोरा": "katori",
+    "गिलास": "glass",
+    "कप": "cup",
+    "टुकड़ा": "piece",
 }
+
+_ITEM_SPLIT = re.compile(r"\s*(?:ಮತ್ತು|ಮತ್ತೆ|ಹಾಗೂ|और|एवं|மற்றும்|మరియు|এবং|,|;)\s+")
 
 _FILLER = re.compile(
     r"^(?:ನಾನು|ನಾವು|ಮತ್ತು|ಮೇಲೆ|"
@@ -159,21 +201,22 @@ def _indic_mentions(text: str, meal_type: str | None) -> dict:
     cleaned = _FILLER.sub("", text.strip())
     cleaned = _EATEN.sub("", cleaned).strip(" .।")
     cleaned = re.sub(r"^(?:में|ನಲ್ಲಿ|లో|இல்)\s+", "", cleaned)
-    quantity, unit, rest = _split_quantity(cleaned)
-    food = rest.strip(" .।")
-    if not food:
-        return {"meal_type": meal_type, "items": []}
-    return {
-        "meal_type": meal_type,
-        "items": [
+    parts = [part.strip(" .।") for part in _ITEM_SPLIT.split(cleaned) if part.strip(" .।")]
+    items = []
+    for part in parts or [cleaned]:
+        quantity, unit, rest = _split_quantity(part)
+        food = rest.strip(" .।")
+        if not food or not _looks_like_food_name(food):
+            continue
+        items.append(
             {
                 "food_query": food,
                 "quantity": quantity,
                 "unit": unit,
                 "original_query": food,
             }
-        ],
-    }
+        )
+    return {"meal_type": meal_type, "items": items}
 
 
 def _strip_meal_type(text: str) -> tuple[str | None, str]:

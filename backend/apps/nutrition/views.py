@@ -50,6 +50,7 @@ class FoodSearchView(APIView):
                     "food_name": food.name,
                     "primary_source": "user_provided",
                     "serving_unit": food.serving_unit,
+                    "matched_alias": None,
                     "provenance": "user_provided",
                     "user_food_id": food.id,
                 }

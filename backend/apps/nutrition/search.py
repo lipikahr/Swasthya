@@ -88,30 +88,49 @@ def meaningful_food_query(query: str) -> bool:
     return any(word.casefold() not in _NOT_FOOD_WORDS and len(word) > 1 for word in words)
 
 
+def _attach_alias(food, query: str):
+    folded = normalize_alias(query)
+    alias = (
+        food.aliases.filter(verified=True)
+        .filter(Q(normalized_alias__istartswith=folded) | Q(normalized_alias__icontains=folded) | Q(alias_text__icontains=query))
+        .order_by("alias_text")
+        .first()
+    )
+    if alias and normalize_alias(food.food_name) != alias.normalized_alias:
+        food.matched_alias = alias.alias_text
+    else:
+        food.matched_alias = None
+    return food
+
+
 def suggest_foods(query: str, limit: int = 5):
     """Prefix autocomplete for the composer. Does not run the meal agent."""
     text = query.strip()
     if len(text) < 2 or not meaningful_food_query(text):
         return []
     version = active_version()
-    cap = min(max(int(limit), 1), 5)
+    cap = min(max(int(limit), 1), 8)
     folded = normalize_alias(text)
     matches = list(
         Food.objects.filter(nutrition_rows__dataset_version=version)
         .filter(
             Q(food_name__icontains=text)
             | Q(food_code__istartswith=text)
+            | Q(aliases__verified=True, aliases__normalized_alias__istartswith=folded)
             | Q(aliases__verified=True, aliases__normalized_alias__icontains=folded)
         )
         .distinct()
         .order_by("food_name", "food_code")[:40]
     )
-    folded = text.casefold()
+    ascii_folded = text.casefold()
     prefix = []
     rest = []
     for food in matches:
+        _attach_alias(food, text)
         tokens = re.findall(r"[a-z0-9]+", food.food_name.casefold())
-        if food.food_name.casefold().startswith(folded) or any(token.startswith(folded) for token in tokens):
+        name_hit = food.food_name.casefold().startswith(ascii_folded) or any(token.startswith(ascii_folded) for token in tokens)
+        alias_hit = bool(getattr(food, "matched_alias", None))
+        if name_hit or (alias_hit and normalize_alias(food.matched_alias or "").startswith(folded)):
             prefix.append(food)
         else:
             rest.append(food)

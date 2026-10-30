@@ -153,7 +153,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="stack">
+    <div className="stack fit-page">
       <header className="page-head">
         <div>
           <p className="eyebrow">Settings</p>
@@ -305,7 +305,7 @@ export function SettingsPage() {
                 <p className="muted">User-provided nutrition · {food.allergen_status === "unverified" ? "allergen status unverified" : "ingredients listed"}</p>
                 <button
                   type="button"
-                  className="ghost"
+                  className="danger"
                   onClick={() => {
                     api(`/api/user-foods/${food.id}/`, { method: "DELETE" })
                       .then(() => load())
@@ -326,7 +326,7 @@ export function SettingsPage() {
           onSubmit={(event) => {
             event.preventDefault();
             void patchProfile(
-              { preferred_language: profile.preferred_language, autoplay_replies: Boolean(profile.autoplay_replies) },
+              { preferred_language: profile.preferred_language },
               "Voice settings saved.",
             );
           }}
@@ -342,14 +342,7 @@ export function SettingsPage() {
               ))}
             </select>
           </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={Boolean(profile.autoplay_replies)}
-              onChange={(event) => setProfile({ ...profile, autoplay_replies: event.target.checked })}
-            />
-            Auto-play replies (off by default)
-          </label>
+          <p className="muted">Replies stay on the page. Voice input is still available in Coach.</p>
           <button type="submit">Save voice</button>
         </form>
       ) : null}

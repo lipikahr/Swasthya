@@ -160,12 +160,15 @@ class OpenRouterProvider:
 
 def _meal_extract_prompt(text: str) -> str:
     return (
-        "Extract meal items from the user text. Reply with JSON only, "
-        'shaped as {"meal_type": "breakfast"|"lunch"|"dinner"|"snack"|null, '
-        '"items": [{"food_query": string, "quantity": number|null, "unit": string|null}]}. '
-        "food_query must be only the food name, such as chapati, milk, or upma. "
+        "Read the user text. First choose intent: log_meal, ask_progress, ask_plan, "
+        "suggest_food, confirm, cancel, or other. Then extract meal items if the intent is log_meal. "
+        "Reply with JSON only, shaped as "
+        '{"intent": string, "meal_type": "breakfast"|"lunch"|"dinner"|"snack"|null, '
+        '"items": [{"food_query": string, "food_english": string, "quantity": number|null, "unit": string|null}]}. '
+        "food_query is the food name as written. food_english is the same food in English letters when you know it. "
         "Do not put the whole sentence, the quantity, or phrases such as \"I ate\" in food_query. "
-        "quantity must be a number using 0-9 digits. unit must be a short string such as g, kg, piece, or idli. "
+        "Split multiple foods joined by and, with, comma, ಮತ್ತು, और, மற்றும், మరియు, or এবং. "
+        "quantity must be a number using 0-9 digits. unit must be a short household word such as g, piece, katori, bowl, or cup. "
         "Do not include a user id. Do not invent nutrition numbers.\n\n"
         f"User text: {text}"
     )
@@ -205,8 +208,14 @@ def _extract_payload(provider: str, payload: dict) -> dict:
         if not query:
             continue
         original = str(raw.get("original_query") or query).strip()
-        items.append({"food_query": query, "quantity": quantity, "unit": unit, "original_query": original})
-    return {"provider": provider, "meal_type": meal_type, "items": items}
+        english = str(raw.get("food_english") or "").strip()
+        item = {"food_query": query, "quantity": quantity, "unit": unit, "original_query": original}
+        if english and english.casefold() != query.casefold():
+            item["food_english"] = english
+            item["search_query"] = english
+        items.append(item)
+    intent = str(payload.get("intent") or "").strip().lower()
+    return {"provider": provider, "meal_type": meal_type, "items": items, "intent": intent}
 
 
 def _sanitize_upstream_message(message: str) -> str:

@@ -41,10 +41,18 @@ class NutrientSerializer(serializers.Serializer):
 
 class FoodSummarySerializer(serializers.ModelSerializer):
     serving_unit = serializers.CharField(allow_blank=True)
+    matched_alias = serializers.SerializerMethodField()
+    user_food_id = serializers.SerializerMethodField()
 
     class Meta:
         model = Food
-        fields = ("food_code", "food_name", "primary_source", "serving_unit")
+        fields = ("food_code", "food_name", "primary_source", "serving_unit", "matched_alias", "user_food_id")
+
+    def get_matched_alias(self, obj):
+        return getattr(obj, "matched_alias", None)
+
+    def get_user_food_id(self, obj):
+        return getattr(obj, "user_food_id", None)
 
 
 class ServingSerializer(serializers.Serializer):

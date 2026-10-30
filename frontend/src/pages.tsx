@@ -695,7 +695,7 @@ export function MealDetailPage() {
           <p className="eyebrow">{new Date(meal.timestamp).toLocaleString()}</p>
           <h1>{meal.meal_type}</h1>
         </div>
-        <button type="button" className="soft" onClick={remove}>
+        <button type="button" className="danger" onClick={remove}>
           Delete meal
         </button>
       </header>

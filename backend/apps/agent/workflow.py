@@ -10,6 +10,7 @@ from the model output.
 import copy
 import re
 from datetime import timedelta
+from decimal import Decimal, ROUND_HALF_UP
 from typing import TypedDict
 
 from django.db import transaction
@@ -142,8 +143,11 @@ def _preferred_language(user_id: int) -> str:
 def extract_node(state: AgentState) -> dict:
     text = " ".join(state["text"].strip().split())
     language = detect_language(text, _preferred_language(state["user_id"]))
+    working, internal = working_text_for_model(text, language)
+    if internal:
+        _record(state, "translate", "internal_en", {"original_chars": len(text)}, {"used": True, "language": language}, "ok")
     draft = _get_draft(state)
-    social = _social_reply(text)
+    social = _social_reply(text) or (working != text and _social_reply(working))
     if social:
         return {
             "status": "NEEDS_CLARIFICATION",
@@ -155,7 +159,7 @@ def extract_node(state: AgentState) -> dict:
             "meal_id": None,
             "language": language,
         }
-    if _CANCEL.match(text):
+    if _CANCEL.match(text) or _CANCEL.match(working):
         _delete_draft(state)
         return {
             "status": "NEEDS_CLARIFICATION",
@@ -189,23 +193,26 @@ def extract_node(state: AgentState) -> dict:
         return {**_draft_state(draft.meal_type, applied), "language": language}
 
     info = _information_turn(state, text, language)
+    if info is None and working != text:
+        info = _information_turn(state, working, language)
     if info is not None:
         return info
-    if is_suggestion_request(text):
+    if is_suggestion_request(text) or is_suggestion_request(working):
         from django.contrib.auth import get_user_model
 
         user = get_user_model().objects.get(pk=state["user_id"])
-        suggested = suggest_foods_for_user(user, _stated_meal_type(text))
+        suggested = suggest_foods_for_user(user, _stated_meal_type(text) or _stated_meal_type(working))
         suggested["language"] = language
         suggested["provider"] = "suggestions"
         return suggested
     local = extract_mentions(text)
+    if not local.get("items") and working != text:
+        translated = extract_mentions(working)
+        if translated.get("items"):
+            local = translated
     provider = get_provider()
-    working, internal = working_text_for_model(text, language)
-    if internal:
-        _record(state, "translate", "internal_en", {"original_chars": len(text)}, {"used": True, "language": language}, "ok")
     try:
-        if local.get("items"):
+        if provider.name == "rules" and local.get("items"):
             extracted = {
                 "provider": provider.name,
                 "items": local["items"],
@@ -213,25 +220,63 @@ def extract_node(state: AgentState) -> dict:
             }
         else:
             extracted = provider.extract(working)
+            if not extracted.get("items") and local.get("items"):
+                extracted = {
+                    "provider": extracted.get("provider") or provider.name,
+                    "items": local["items"],
+                    "meal_type": extracted.get("meal_type") or local.get("meal_type"),
+                }
     except ProviderError as exc:
-        output = {"error": str(exc), "reason": getattr(exc, "reason", "provider")}
-        output.update(
-            {
-                key: value
-                for key, value in getattr(exc, "details", {}).items()
-                if key in {"exception", "http_code", "status", "reason", "upstream"} and value not in (None, "")
+        if local.get("items"):
+            extracted = {
+                "provider": provider.name,
+                "items": local["items"],
+                "meal_type": local.get("meal_type"),
             }
-        )
-        _record(state, "extract", provider.name, {"char_count": len(text)}, output, "error")
+        else:
+            output = {"error": str(exc), "reason": getattr(exc, "reason", "provider")}
+            output.update(
+                {
+                    key: value
+                    for key, value in getattr(exc, "details", {}).items()
+                    if key in {"exception", "http_code", "status", "reason", "upstream"} and value not in (None, "")
+                }
+            )
+            _record(state, "extract", provider.name, {"char_count": len(text)}, output, "error")
+            return {
+                "status": "ERROR",
+                "reply": str(exc),
+                "mentions": [],
+                "draft_items": [],
+                "provider": provider.name,
+                "reason": getattr(exc, "reason", "provider"),
+                "language": language,
+            }
+    intent = str(extracted.get("intent") or "").casefold()
+    if intent == "cancel":
+        _delete_draft(state)
         return {
-            "status": "ERROR",
-            "reply": str(exc),
+            "status": "NEEDS_CLARIFICATION",
+            "reply": "Okay, I won't log that meal.",
+            "provider": extracted.get("provider") or provider.name,
+            "meal_type": None,
             "mentions": [],
             "draft_items": [],
-            "provider": provider.name,
-            "reason": getattr(exc, "reason", "provider"),
+            "meal_id": None,
             "language": language,
         }
+    if intent in {"ask_progress", "ask_plan"}:
+        routed = _information_turn(state, working or text, language)
+        if routed is not None:
+            return routed
+    if intent == "suggest_food":
+        from django.contrib.auth import get_user_model
+
+        user = get_user_model().objects.get(pk=state["user_id"])
+        suggested = suggest_foods_for_user(user, extracted.get("meal_type") or _stated_meal_type(text))
+        suggested["language"] = language
+        suggested["provider"] = "suggestions"
+        return suggested
     items = [_item_from_mention(mention) for mention in extracted["items"]]
     items = [item for item in items if item["food_query"] or item["quantity"]]
     for item in items:
@@ -553,6 +598,9 @@ def _item_from_mention(mention: dict) -> dict:
         unit = None
     item = _fresh_item(raw_query, quantity=quantity, unit=unit, confirmed=confirmed)
     item["original_query"] = original_query
+    english = str(mention.get("food_english") or mention.get("search_query") or "").strip()
+    if english:
+        item["search_query"] = english
     return item
 
 
@@ -792,10 +840,21 @@ def _build():
 _graph = _build()
 
 
+def _whole_kcal(value) -> str:
+    if value is None:
+        return "unknown"
+    return str(int(Decimal(str(value)).quantize(Decimal("1"), rounding=ROUND_HALF_UP)))
+
+
 def _stated_meal_type(text: str) -> str | None:
     """Use a category only when the user named breakfast, lunch, dinner, or snack."""
     match = re.search(r"\b(breakfast|lunch|dinner|snack)\b", text or "", re.IGNORECASE)
-    return match.group(1).lower() if match else None
+    if match:
+        return match.group(1).lower()
+    from .extract import _strip_meal_type
+
+    found, _ = _strip_meal_type(text or "")
+    return found
 
 
 def _information_turn(state: AgentState, text: str, language: str) -> dict | None:
@@ -835,7 +894,7 @@ def _information_turn(state: AgentState, text: str, language: str) -> dict | Non
     remaining = (progress.get("remaining") or {}).get("calories")
     reply = (
         f"Saved meals on {progress['date']}: {progress['meal_count']}. "
-        f"Calories eaten {consumed}. Remaining {remaining}. {progress['goal_label']}."
+        f"Calories eaten {_whole_kcal(consumed)}. Remaining {_whole_kcal(remaining)}. {progress['goal_label']}."
     )
     return {
         "status": "NEEDS_CLARIFICATION",
@@ -1139,7 +1198,7 @@ def confirm_pending_meal(*, user, conversation, meal_type: str) -> dict:
             reply = f"Logged {', '.join(names)}."
             remaining = progress["remaining"]
             if remaining and remaining.get("calories") is not None:
-                reply = f"{reply} About {remaining['calories']} kcal remains for today."
+                reply = f"{reply} About {_whole_kcal(remaining['calories'])} kcal remains for today."
             reply = localize_reply(reply, _preferred_language(user.id))
             AgentAction.objects.create(
                 conversation=conversation,
