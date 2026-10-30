@@ -179,8 +179,8 @@ def test_embedding_neighbors_ask_for_clarification_instead_of_logging(tmp_path):
         model_name=EMBEDDING_MODEL,
     )
     result = resolve_food("zzz-not-a-food", embed=lambda texts: [vector])
-    assert result["status"] == "ambiguous"
-    assert [food.food_code for food in result["foods"]] == ["IDLI"]
+    assert result["status"] == "not_found"
+    assert result["foods"] == []
 
 
 def test_a_plural_name_uses_the_singular_record_before_vectors(tmp_path, monkeypatch):
@@ -233,6 +233,15 @@ def test_food_endpoints_require_a_token_and_return_stored_values(api_client, mak
     assert body["serving"]["unit"] == "tea cup"
     assert Decimal(body["serving"]["nutrients"]["energy_kcal"]) == Decimal("34")
     assert api_client.get("/api/foods/missing/").status_code == 404
+
+    from apps.meals.models import Meal
+
+    suggested = api_client.get("/api/foods/search/?q=tea&suggest=1&limit=5")
+    assert suggested.status_code == 200
+    names = [row["food_name"] for row in suggested.json()["results"]]
+    assert names == ["Hot tea"]
+    assert len(names) <= 5
+    assert Meal.objects.count() == 0
 
 
 @pytest.mark.skipif(not REAL_WORKBOOK.is_file(), reason="The Anuvaad workbook is local and is not in Git.")

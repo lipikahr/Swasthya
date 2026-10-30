@@ -5,8 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .calculation import NutritionError, active_version
-from .models import FoodNutrition, FoodServingNutrition
-from .search import search_food
+from .models import FoodNutrition, FoodServingNutrition, UserFood
+from .search import search_food, suggest_foods
 from .serializers import FoodDetailSerializer, FoodSummarySerializer
 
 
@@ -27,10 +27,36 @@ class FoodSearchView(APIView):
         if not query.strip():
             raise ValidationError({"q": ["Enter a food name or food code."]})
         try:
-            foods = search_food(query)
+            cap = min(max(int(request.query_params.get("limit") or 25), 1), 25)
+        except (TypeError, ValueError):
+            cap = 25
+        try:
+            foods = (
+                suggest_foods(query, cap)
+                if str(request.query_params.get("suggest") or "") in {"1", "true"}
+                else search_food(query, cap)
+            )
         except NutritionError as exc:
             raise _dataset_error(exc) from exc
-        return Response({"results": FoodSummarySerializer(foods, many=True).data})
+        payload = FoodSummarySerializer(foods, many=True).data
+        for row in payload:
+            row["provenance"] = "verified"
+            row["user_food_id"] = None
+        if request.user.is_authenticated:
+            personal = UserFood.objects.filter(user=request.user, name__icontains=query).order_by("name")[:5]
+            extras = [
+                {
+                    "food_code": "",
+                    "food_name": food.name,
+                    "primary_source": "user_provided",
+                    "serving_unit": food.serving_unit,
+                    "provenance": "user_provided",
+                    "user_food_id": food.id,
+                }
+                for food in personal
+            ]
+            payload = extras + payload
+        return Response({"results": payload})
 
 
 class FoodDetailView(APIView):

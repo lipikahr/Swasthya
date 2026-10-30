@@ -37,6 +37,7 @@ services:
       # Docker the database host is the service name `db`. Same credentials as
       # the db service above, taken from the same root .env.
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SARVAM_API_KEY: ${SARVAM_API_KEY:-}
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app

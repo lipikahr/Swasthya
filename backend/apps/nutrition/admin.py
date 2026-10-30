@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Food, FoodNutrition, FoodServingNutrition, NutritionDatasetVersion
+from .models import Food, FoodAlias, FoodNutrition, FoodServingNutrition, NutritionDatasetVersion
 
 
 @admin.register(NutritionDatasetVersion)
@@ -12,6 +12,13 @@ class NutritionDatasetVersionAdmin(admin.ModelAdmin):
 class FoodAdmin(admin.ModelAdmin):
     list_display = ("food_code", "food_name", "primary_source", "serving_unit")
     search_fields = ("food_code", "food_name")
+
+
+@admin.register(FoodAlias)
+class FoodAliasAdmin(admin.ModelAdmin):
+    list_display = ("alias_text", "language", "food", "verified", "source")
+    search_fields = ("alias_text", "normalized_alias", "food__food_name", "food__food_code")
+    list_filter = ("language", "verified", "source")
 
 
 @admin.register(FoodNutrition)

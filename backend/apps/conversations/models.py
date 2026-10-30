@@ -32,6 +32,24 @@ class Message(models.Model):
         ordering = ["timestamp", "id"]
 
 
+class MealDraft(models.Model):
+    """Pending meal for one conversation. Survives later messages and process restarts."""
+
+    conversation = models.OneToOneField(Conversation, on_delete=models.CASCADE, related_name="meal_draft")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="meal_drafts")
+    meal_type = models.CharField(max_length=16, blank=True)
+    status = models.CharField(max_length=32)
+    language = models.CharField(max_length=16, blank=True)
+    original_text = models.TextField(blank=True, default="")
+    items = models.JSONField(default=list)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.conversation_id and self.user_id and self.conversation.user_id != self.user_id:
+            raise ValueError("A meal draft belongs to the conversation's user.")
+        super().save(*args, **kwargs)
+
+
 class AgentAction(models.Model):
     conversation = models.ForeignKey(Conversation, on_delete=models.CASCADE, related_name="actions")
     action_type = models.CharField(max_length=64)

@@ -1,6 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { api, ApiError } from "./api";
+import { displayKcal } from "./chat-ui";
+import { CHAT_COPY, displayAssistantMessage } from "./chat-copy";
+import { Logo } from "./logo";
 import { useSession } from "./session";
 
 export type Profile = {
@@ -10,6 +13,17 @@ export type Profile = {
   weight_kg: string | null;
   activity_level: string;
   goal: string;
+  allergies_status?: string;
+  allergies?: string[];
+  dislikes?: string[];
+  diet_pattern?: string;
+  preferred_cuisines?: string[];
+  preferred_language?: string;
+  appearance?: string;
+  restrictions?: string[];
+  likes?: string[];
+  notes?: string;
+  autoplay_replies?: boolean;
 };
 
 type Target = {
@@ -65,12 +79,44 @@ type ChatReply = {
 };
 
 const MACROS = [
-  ["energy_kcal", "calories", "Calories"],
-  ["protein_g", "protein_g", "Protein"],
-  ["carb_g", "carbohydrates_g", "Carbs"],
-  ["fat_g", "fat_g", "Fat"],
-  ["fibre_g", "fibre_g", "Fibre"],
+  ["energy_kcal", "calories", "Calories", "kcal"],
+  ["protein_g", "protein_g", "Protein", "g"],
+  ["carb_g", "carbohydrates_g", "Carbs", "g"],
+  ["fat_g", "fat_g", "Fat", "g"],
+  ["fibre_g", "fibre_g", "Fibre", "g"],
 ] as const;
+
+const MINERALS = [
+  ["calcium_mg", "Calcium", "mg"],
+  ["iron_mg", "Iron", "mg"],
+  ["magnesium_mg", "Magnesium", "mg"],
+  ["potassium_mg", "Potassium", "mg"],
+  ["sodium_mg", "Sodium", "mg"],
+  ["zinc_mg", "Zinc", "mg"],
+] as const;
+
+const VITAMINS = [
+  ["vita_ug", "Vitamin A", "µg"],
+  ["vitb1_mg", "Vitamin B1", "mg"],
+  ["vitb2_mg", "Vitamin B2", "mg"],
+  ["vitb3_mg", "Vitamin B3", "mg"],
+  ["vitb6_mg", "Vitamin B6", "mg"],
+  ["folate_ug", "Folate", "µg"],
+  ["vitc_mg", "Vitamin C", "mg"],
+  ["vitd2_ug", "Vitamin D2", "µg"],
+  ["vitd3_ug", "Vitamin D3", "µg"],
+  ["vite_mg", "Vitamin E", "mg"],
+  ["vitk1_ug", "Vitamin K1", "µg"],
+  ["vitk2_ug", "Vitamin K2", "µg"],
+] as const;
+
+function fillRatio(consumed: string | null | undefined, target: string | null | undefined) {
+  if (consumed == null || target == null) return null;
+  const eaten = Number(consumed);
+  const goal = Number(target);
+  if (!Number.isFinite(eaten) || !Number.isFinite(goal) || goal <= 0) return null;
+  return Math.min(100, (eaten / goal) * 100);
+}
 
 export function profileComplete(profile: Profile) {
   return Boolean(
@@ -86,7 +132,7 @@ function showAmount(value: string | null | undefined) {
 }
 
 function messageFrom(err: unknown) {
-  return err instanceof ApiError ? err.message : "Something went wrong.";
+  return err instanceof ApiError ? err.message : CHAT_COPY.genericError;
 }
 
 export function DashboardPage() {
@@ -109,23 +155,62 @@ export function DashboardPage() {
           <p className="eyebrow">{data.date}</p>
           <h1>Today</h1>
         </div>
-        <Link className="button" to="/chat">
-          Log a meal
-        </Link>
+        <div className="row-actions">
+          <Link className="button" to="/log">
+            Log a meal
+          </Link>
+          <Link className="soft" to="/suggestions">
+            Suggestions
+          </Link>
+        </div>
       </header>
       {data.progress.meal_count === 0 ? <p className="banner">No meals saved yet today.</p> : null}
       <div className="metric-grid">
-        {MACROS.map(([consumedKey, targetKey, label]) => (
-          <article key={consumedKey} className="card metric">
-            <p className="eyebrow">{label}</p>
-            <strong>{showAmount(data.progress.consumed[consumedKey])}</strong>
-            <p className="muted">
-              Target {data.target ? showAmount(data.target[targetKey]) : "not set"} · Remaining{" "}
-              {data.progress.remaining ? showAmount(data.progress.remaining[targetKey]) : "not set"}
-            </p>
-          </article>
-        ))}
+        {MACROS.map(([consumedKey, targetKey, label, unit], index) => {
+          const consumed = data.progress.consumed[consumedKey];
+          const target = data.target ? data.target[targetKey] : null;
+          const remaining = data.progress.remaining ? data.progress.remaining[targetKey] : null;
+          const width = fillRatio(consumed, target);
+          return (
+            <article key={consumedKey} className={index === 0 ? "card metric featured" : "card metric"}>
+              <p className="eyebrow">{label}</p>
+              <strong>{showAmount(consumed)}</strong>
+              <p className="muted">
+                {unit} eaten · target {target ? showAmount(target) : "not set"} · remaining {remaining ? showAmount(remaining) : "not set"}
+              </p>
+              {width == null ? null : (
+                <div className="bar" aria-hidden="true">
+                  <span style={{ width: `${width}%` }} />
+                </div>
+              )}
+            </article>
+          );
+        })}
       </div>
+      <article className="card stack">
+        <p className="eyebrow">Minerals</p>
+        <div className="micro-grid">
+          {MINERALS.map(([key, label, unit]) => (
+            <p key={key}>
+              <span className="muted">{label}</span>
+              <strong className="stat">{showAmount(data.progress.consumed[key])}</strong>
+              <span className="muted">{unit}</span>
+            </p>
+          ))}
+        </div>
+      </article>
+      <article className="card stack">
+        <p className="eyebrow">Vitamins</p>
+        <div className="micro-grid">
+          {VITAMINS.map(([key, label, unit]) => (
+            <p key={key}>
+              <span className="muted">{label}</span>
+              <strong className="stat">{showAmount(data.progress.consumed[key])}</strong>
+              <span className="muted">{unit}</span>
+            </p>
+          ))}
+        </div>
+      </article>
       <div className="split">
         <article className="card">
           <p className="eyebrow">Streaks</p>
@@ -146,16 +231,34 @@ export function DashboardPage() {
 
 export function OnboardingPage() {
   const navigate = useNavigate();
+  const { logout } = useSession();
   const [form, setForm] = useState({
     date_of_birth: "",
-    sex: "female",
+    sex: "",
     height_cm: "",
     weight_kg: "",
-    activity_level: "sedentary",
-    goal: "maintain",
+    activity_level: "",
+    goal: "",
   });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    api<Profile>("/api/profile/")
+      .then((profile) => {
+        setForm({
+          date_of_birth: profile.date_of_birth ?? "",
+          sex: profile.sex || "",
+          height_cm: profile.height_cm ?? "",
+          weight_kg: profile.weight_kg ?? "",
+          activity_level: profile.activity_level || "",
+          goal: profile.goal || "",
+        });
+      })
+      .catch((err) => setError(messageFrom(err)))
+      .finally(() => setReady(true));
+  }, []);
 
   function update(name: string, value: string) {
     setForm((current) => ({ ...current, [name]: value }));
@@ -167,7 +270,7 @@ export function OnboardingPage() {
     setError("");
     try {
       await api("/api/profile/", { method: "PUT", body: JSON.stringify(form) });
-      navigate("/");
+      navigate("/profile");
     } catch (err) {
       setError(messageFrom(err));
     } finally {
@@ -179,6 +282,7 @@ export function OnboardingPage() {
     <section className="card narrow stack">
       <h1>Your profile</h1>
       <p className="muted">Targets are calculated from these details. They are not stored until you accept them.</p>
+      {!ready ? <p className="muted">Loading profile…</p> : null}
       {error ? <p className="banner error">{error}</p> : null}
       <form onSubmit={onSubmit} className="stack">
         <label>
@@ -187,7 +291,8 @@ export function OnboardingPage() {
         </label>
         <label>
           Sex
-          <select value={form.sex} onChange={(event) => update("sex", event.target.value)}>
+          <select value={form.sex} onChange={(event) => update("sex", event.target.value)} required>
+            <option value="">Select</option>
             <option value="female">Female</option>
             <option value="male">Male</option>
           </select>
@@ -202,7 +307,8 @@ export function OnboardingPage() {
         </label>
         <label>
           Activity
-          <select value={form.activity_level} onChange={(event) => update("activity_level", event.target.value)}>
+          <select value={form.activity_level} onChange={(event) => update("activity_level", event.target.value)} required>
+            <option value="">Select</option>
             <option value="sedentary">Sedentary</option>
             <option value="lightly_active">Lightly active</option>
             <option value="moderately_active">Moderately active</option>
@@ -211,16 +317,26 @@ export function OnboardingPage() {
         </label>
         <label>
           Goal
-          <select value={form.goal} onChange={(event) => update("goal", event.target.value)}>
-            <option value="maintain">Maintain</option>
+          <select value={form.goal} onChange={(event) => update("goal", event.target.value)} required>
+            <option value="">Select</option>
+            <option value="maintain">Maintain weight</option>
             <option value="lose">Lose weight</option>
             <option value="gain">Gain weight</option>
           </select>
         </label>
-        <button type="submit" disabled={busy}>
+        <button type="submit" disabled={busy || !ready}>
           {busy ? "Saving…" : "Save profile"}
         </button>
       </form>
+      <button
+        type="button"
+        className="soft"
+        onClick={() => {
+          void logout();
+        }}
+      >
+        Log out
+      </button>
     </section>
   );
 }
@@ -349,25 +465,51 @@ function TargetLines({ target }: { target: Target }) {
   );
 }
 
-export function MealsPage() {
+export function LogFoodPage() {
+  return <MealsPage mode="log" />;
+}
+
+export function LogMealPage() {
+  return (
+    <div className="stack">
+      <header className="page-head">
+        <div>
+          <p className="eyebrow">Today’s meals</p>
+          <h1>Log a meal</h1>
+          <p className="muted">Describe what you ate, or search the verified food list and save the amount yourself.</p>
+        </div>
+      </header>
+      <ChatPage />
+      <LogFoodPage />
+    </div>
+  );
+}
+
+export function MealsPage({ mode = "history" }: { mode?: "log" | "history" }) {
   const [meals, setMeals] = useState<Meal[] | null>(null);
+  const [day, setDay] = useState("");
   const [query, setQuery] = useState("");
-  const [hits, setHits] = useState<FoodHit[]>([]);
+  const [hits, setHits] = useState<FoodHit[] | null>(null);
   const [picked, setPicked] = useState<FoodHit | null>(null);
   const [quantity, setQuantity] = useState("1");
   const [unit, setUnit] = useState("g");
   const [mealType, setMealType] = useState("breakfast");
   const [error, setError] = useState("");
 
-  async function load() {
-    const today = new Date().toISOString().slice(0, 10);
-    const body = await api<{ results: Meal[] }>(`/api/meals/?date=${today}`);
+  async function load(selected = day) {
+    const body = await api<{ results: Meal[] }>(`/api/meals/?date=${selected}`);
     setMeals(body.results);
   }
 
   useEffect(() => {
-    load().catch((err) => setError(messageFrom(err)));
-  }, []);
+    if (!day) {
+      api<Dashboard>("/api/dashboard/")
+        .then((dashboard) => setDay(dashboard.date))
+        .catch((err) => setError(messageFrom(err)));
+      return;
+    }
+    load(day).catch((err) => setError(messageFrom(err)));
+  }, [day]);
 
   async function search(event: FormEvent) {
     event.preventDefault();
@@ -394,9 +536,9 @@ export function MealsPage() {
         }),
       });
       setPicked(null);
-      setHits([]);
+      setHits(null);
       setQuery("");
-      await load();
+      await load(day);
     } catch (err) {
       setError(messageFrom(err));
     }
@@ -405,18 +547,34 @@ export function MealsPage() {
   return (
     <section className="stack">
       <header className="page-head">
-        <h1>Meals</h1>
+        <div>
+          {mode === "log" ? <h2>Search a verified food</h2> : <h1>Meal history</h1>}
+          <p className="muted">
+            {mode === "log" ? (
+              "Choose a food, a quantity, and a unit the dataset supports."
+            ) : (
+              <Link to="/log">Log a Meal</Link>
+            )}
+          </p>
+        </div>
+        <label>
+          Date
+          <input type="date" value={day} onChange={(event) => setDay(event.target.value)} />
+        </label>
       </header>
       {error ? <p className="banner error">{error}</p> : null}
+      {mode === "log" ? (
+      <>
       <form className="card stack" onSubmit={search}>
         <label>
           Find a verified food
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="idli" />
         </label>
         <button type="submit">Search</button>
-        {hits.length === 0 ? <p className="muted">Search results appear here.</p> : null}
+        {hits === null ? <p className="muted">Search results appear here.</p> : null}
+        {hits && hits.length === 0 ? <p className="banner">No verified food matches that search.</p> : null}
         <ul className="plain">
-          {hits.map((food) => (
+          {hits?.map((food) => (
             <li key={food.food_code}>
               <button
                 type="button"
@@ -459,15 +617,20 @@ export function MealsPage() {
           <button type="submit">Save meal</button>
         </form>
       ) : null}
+      </>
+      ) : null}
       {meals === null ? <p className="muted">Loading meals…</p> : null}
-      {meals && meals.length === 0 ? <p className="banner">Nothing saved for today.</p> : null}
+      {meals && meals.length === 0 ? <p className="banner">No meals saved for {day}.</p> : null}
       <ul className="plain">
         {(meals ?? []).map((meal) => (
           <li key={meal.id} className="card">
             <Link to={`/meals/${meal.id}`}>
-              {meal.meal_type} · {new Date(meal.timestamp).toLocaleTimeString()}
+              {meal.meal_type} · {new Date(meal.timestamp).toLocaleString()}
             </Link>
-            <p className="muted">{meal.items.map((item) => item.food_name).join(", ")}</p>
+            <p className="muted">
+              {meal.items.map((item) => `${item.quantity} ${item.unit} ${item.food_name}`).join(", ")}
+              {meal.items[0] ? ` · ${displayKcal(meal.items[0].nutrition_snapshot.energy_kcal)} kcal` : ""}
+            </p>
           </li>
         ))}
       </ul>
@@ -479,11 +642,19 @@ export function MealDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [meal, setMeal] = useState<Meal | null>(null);
+  const [mealType, setMealType] = useState("breakfast");
+  const [rows, setRows] = useState<Array<{ food_code: string; quantity: string; unit: string }>>([]);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api<Meal>(`/api/meals/${id}/`)
-      .then(setMeal)
+      .then((loaded) => {
+        setMeal(loaded);
+        setMealType(loaded.meal_type);
+        setRows(loaded.items.map((item) => ({ food_code: item.food_code, quantity: item.quantity, unit: item.unit })));
+      })
       .catch((err) => setError(messageFrom(err)));
   }, [id]);
 
@@ -492,30 +663,92 @@ export function MealDetailPage() {
     navigate("/meals");
   }
 
-  if (error) return <p className="banner error">{error}</p>;
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const updated = await api<Meal>(`/api/meals/${id}/`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          meal_type: mealType,
+          items: rows.map((row) => ({ ...row, input_source: "manual" })),
+        }),
+      });
+      setMeal(updated);
+      setNotice("Meal updated from the verified dataset.");
+    } catch (err) {
+      setError(messageFrom(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (error && !meal) return <p className="banner error">{error}</p>;
   if (!meal) return <p className="muted">Loading meal…</p>;
 
   return (
     <section className="stack">
       <header className="page-head">
-        <h1>{meal.meal_type}</h1>
-        <button type="button" onClick={remove}>
+        <div>
+          <p className="eyebrow">{new Date(meal.timestamp).toLocaleString()}</p>
+          <h1>{meal.meal_type}</h1>
+        </div>
+        <button type="button" className="soft" onClick={remove}>
           Delete meal
         </button>
       </header>
-      {meal.items.map((item) => (
-        <article key={item.id} className="card">
-          <h2>
-            {item.quantity} {item.unit} {item.food_name}
-          </h2>
-          <p className="muted">{item.food_code}</p>
-          <p>Energy {showAmount(item.nutrition_snapshot.energy_kcal)} kcal</p>
-          <p>Protein {showAmount(item.nutrition_snapshot.protein_g)} g</p>
-          <p>Carbs {showAmount(item.nutrition_snapshot.carb_g)} g</p>
-          <p>Fat {showAmount(item.nutrition_snapshot.fat_g)} g</p>
-          <p>Fibre {showAmount(item.nutrition_snapshot.fibre_g)} g</p>
-        </article>
-      ))}
+      {error ? <p className="banner error">{error}</p> : null}
+      {notice ? <p className="banner">{notice}</p> : null}
+      <form className="stack" onSubmit={save}>
+        <label>
+          Meal type
+          <select value={mealType} onChange={(event) => setMealType(event.target.value)}>
+            <option value="breakfast">Breakfast</option>
+            <option value="lunch">Lunch</option>
+            <option value="dinner">Dinner</option>
+            <option value="snack">Snack</option>
+            <option value="unspecified">Unspecified</option>
+          </select>
+        </label>
+        {meal.items.map((item, index) => (
+          <article key={item.id} className="card stack">
+            <h2>
+              {item.food_name}
+            </h2>
+            <p className="muted">{item.food_code}</p>
+            <label>
+              Quantity
+              <input
+                value={rows[index]?.quantity ?? ""}
+                onChange={(event) =>
+                  setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, quantity: event.target.value } : row)))
+                }
+                required
+              />
+            </label>
+            <label>
+              Unit
+              <input
+                value={rows[index]?.unit ?? ""}
+                onChange={(event) =>
+                  setRows((current) => current.map((row, rowIndex) => (rowIndex === index ? { ...row, unit: event.target.value } : row)))
+                }
+                required
+              />
+            </label>
+            <p>Energy {displayKcal(item.nutrition_snapshot.energy_kcal)} kcal</p>
+            <p>Protein {showAmount(item.nutrition_snapshot.protein_g)} g</p>
+            <p>Carbs {showAmount(item.nutrition_snapshot.carb_g)} g</p>
+            <p>Fat {showAmount(item.nutrition_snapshot.fat_g)} g</p>
+            <p>Fibre {showAmount(item.nutrition_snapshot.fibre_g)} g</p>
+          </article>
+        ))}
+        <button type="submit" disabled={busy}>
+          {busy ? "Saving…" : "Save changes"}
+        </button>
+      </form>
     </section>
   );
 }
@@ -526,23 +759,61 @@ export function ChatPage() {
   const [text, setText] = useState("");
   const [conversationId, setConversationId] = useState<number | null>(null);
   const [turns, setTurns] = useState<Array<{ role: string; content: string; status?: string }>>([]);
+  const [historyReady, setHistoryReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const sendingRef = useRef(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    api<{ results: Array<{ id: number }> }>("/api/conversations/")
+      .then(async (list) => {
+        const latest = list.results[0];
+        if (!latest || cancelled) return;
+        const detail = await api<{ id: number; messages: Array<{ role: string; content: string }> }>(
+          `/api/conversations/${latest.id}/`,
+        );
+        if (cancelled) return;
+        setConversationId(detail.id);
+        setTurns(detail.messages.map((message) => ({ role: message.role, content: message.content })));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(messageFrom(err));
+      })
+      .finally(() => {
+        if (!cancelled) setHistoryReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function send(path: string, body: Record<string, unknown>, spoken: string) {
+    if (sendingRef.current) return;
+    sendingRef.current = true;
     setBusy(true);
     setError("");
-    setTurns((current) => [...current, { role: "user", content: spoken }]);
+    setTurns((current) => {
+      const last = current[current.length - 1];
+      if (last?.role === "user" && last.content === spoken) return current;
+      return [...current, { role: "user", content: spoken }];
+    });
     try {
       const reply = await api<ChatReply>(path, {
         method: "POST",
         body: JSON.stringify({ ...body, conversation_id: conversationId }),
       });
       setConversationId(reply.conversation_id);
-      setTurns((current) => [...current, { role: "assistant", content: reply.message, status: reply.status }]);
+      setTurns((current) => {
+        const content = displayAssistantMessage(reply.status, reply.message);
+        const last = current[current.length - 1];
+        if (last?.role === "assistant" && last.content === content) return current;
+        return [...current, { role: "assistant", content }];
+      });
     } catch (err) {
       setError(messageFrom(err));
     } finally {
+      sendingRef.current = false;
       setBusy(false);
     }
   }
@@ -550,7 +821,7 @@ export function ChatPage() {
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     const message = text.trim();
-    if (!message) return;
+    if (!message || !historyReady || sendingRef.current) return;
     setText("");
     await send("/api/agent/chat/", { message }, message);
   }
@@ -588,33 +859,46 @@ export function ChatPage() {
   }
 
   return (
-    <section className="stack">
-      <header className="page-head">
-        <div>
-          <h1>Log in words</h1>
-          <p className="muted">A meal is saved only after the reply says SUCCESS.</p>
+    <section className="card chat-panel">
+      <header className="chat-head">
+        <div className="brand">
+          <Logo />
+          <p className="brand-name">{CHAT_COPY.title}</p>
         </div>
+        <button
+          type="button"
+          className="soft"
+          onClick={() => {
+            setConversationId(null);
+            setTurns([]);
+            setError("");
+          }}
+        >
+          New conversation
+        </button>
       </header>
       {error ? <p className="banner error">{error}</p> : null}
-      {turns.length === 0 ? <p className="banner">Try “I ate 2 idlis for breakfast”.</p> : null}
-      <ol className="plain">
+      <p className="muted">{CHAT_COPY.intro}</p>
+      <div className="chat-log" aria-live="polite">
+        {!historyReady ? <p className="muted">{CHAT_COPY.loading}</p> : null}
+        {historyReady && turns.length === 0 ? <p className="muted">{CHAT_COPY.empty}</p> : null}
         {turns.map((turn, index) => (
-          <li key={`${turn.role}-${index}`} className={`card turn ${turn.role}`}>
-            <p className="eyebrow">{turn.role}{turn.status ? ` · ${turn.status}` : ""}</p>
+          <article key={`${turn.role}-${index}`} className={`bubble ${turn.role}`}>
+            <p className="eyebrow">{turn.role === "user" ? "You" : "Swasthya"}</p>
             <p>{turn.content}</p>
-          </li>
+          </article>
         ))}
-      </ol>
-      {busy ? <p className="muted">Working…</p> : null}
+        {busy ? <p className="muted">{CHAT_COPY.busy}</p> : null}
+      </div>
       <form className="composer" onSubmit={onSubmit}>
-        <input value={text} onChange={(event) => setText(event.target.value)} placeholder="What did you eat?" />
+        <input value={text} onChange={(event) => setText(event.target.value)} placeholder={CHAT_COPY.placeholder} />
         <button type="submit" disabled={busy}>
           Send
         </button>
-        <button type="button" onClick={listen} disabled={busy}>
+        <button type="button" className="soft" onClick={listen} disabled={busy}>
           Speak
         </button>
-        <button type="button" onClick={imageUnavailable} disabled={busy}>
+        <button type="button" className="soft" onClick={imageUnavailable} disabled={busy}>
           Image
         </button>
       </form>
@@ -631,11 +915,17 @@ type SpeechRecognizer = {
 
 export function SettingsPage() {
   const { user, logout } = useSession();
-  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api<Profile>("/api/profile/")
+      .then(setProfile)
+      .catch((err) => setError(messageFrom(err)));
+  }, []);
 
   async function onLogout() {
     await logout();
-    navigate("/login");
   }
 
   return (
@@ -644,10 +934,19 @@ export function SettingsPage() {
       <p>
         {user?.name} · {user?.email}
       </p>
+      {error ? <p className="banner error">{error}</p> : null}
+      {profile ? (
+        <p className="muted">
+          {profile.sex || "Sex not set"} · {profile.height_cm ?? "unknown"} cm · {profile.weight_kg ?? "unknown"} kg ·{" "}
+          {profile.activity_level || "activity not set"} · {profile.goal || "goal not set"}
+        </p>
+      ) : (
+        <p className="muted">Loading profile…</p>
+      )}
       <p className="muted">
         The sign-in tokens stay in this browser tab’s session storage. That is temporary and is not the final storage design.
       </p>
-      <Link to="/onboarding">Edit profile</Link>
+      <Link to="/profile">Edit profile</Link>
       <button type="button" onClick={onLogout}>
         Log out
       </button>

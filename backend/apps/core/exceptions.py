@@ -8,9 +8,29 @@
       }
     }
 """
+import logging
+
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.views import exception_handler
+
+logger = logging.getLogger(__name__)
+
+
+def _first_validation_message(details) -> str:
+    if isinstance(details, list) and details:
+        return str(details[0])
+    if isinstance(details, dict):
+        for key, value in details.items():
+            if isinstance(value, (list, dict)):
+                nested = _first_validation_message(value)
+                if nested:
+                    return nested
+            elif value:
+                return str(value)
+    if details:
+        return str(details)
+    return "The submitted data is not valid."
 
 
 def api_exception_handler(exc, context):
@@ -19,8 +39,16 @@ def api_exception_handler(exc, context):
         return None  # unhandled errors become a normal 500, never leaking details
 
     if isinstance(exc, ValidationError):
-        code, message = "validation_error", "The submitted data is not valid."
+        code = "validation_error"
         details = response.data
+        message = _first_validation_message(details)
+        view = getattr(context.get("view"), "__class__", type("x", (), {}))
+        logger.info(
+            "validation_error view=%s status=%s fields=%s",
+            getattr(view, "__name__", ""),
+            response.status_code,
+            sorted(details.keys()) if isinstance(details, dict) else "list",
+        )
     else:
         code = getattr(exc, "default_code", "error")
         detail = response.data.get("detail") if isinstance(response.data, dict) else None

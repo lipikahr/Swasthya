@@ -1,9 +1,24 @@
 from django.db import connection
-from drf_spectacular.utils import OpenApiResponse, extend_schema, inline_serializer
+from drf_spectacular.utils import OpenApiResponse, extend_schema
 from rest_framework import serializers
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from apps.agent.providers import gemini_configuration
+from apps.agent.speech import sarvam_configuration
+
+
+class HealthGeminiSerializer(serializers.Serializer):
+    key_configured = serializers.BooleanField()
+    provider = serializers.CharField()
+    model = serializers.CharField()
+
+
+class HealthOkSerializer(serializers.Serializer):
+    status = serializers.CharField()
+    database = serializers.BooleanField()
+    gemini = HealthGeminiSerializer()
 
 
 class HealthView(APIView):
@@ -14,10 +29,7 @@ class HealthView(APIView):
 
     @extend_schema(
         responses={
-            200: inline_serializer(
-                "HealthOk",
-                {"status": serializers.CharField(), "database": serializers.BooleanField()},
-            ),
+            200: HealthOkSerializer,
             503: OpenApiResponse(description="API is up but the database is unreachable."),
         },
         auth=[],
@@ -30,6 +42,11 @@ class HealthView(APIView):
         except Exception:  # health check must never raise
             db_ok = False
         return Response(
-            {"status": "ok" if db_ok else "degraded", "database": db_ok},
+            {
+                "status": "ok" if db_ok else "degraded",
+                "database": db_ok,
+                "gemini": gemini_configuration(),
+                "sarvam": sarvam_configuration(),
+            },
             status=200 if db_ok else 503,
         )

@@ -13,7 +13,19 @@ def test_urls(settings):
 def test_health_endpoint_is_public_and_reports_database(api_client):
     response = api_client.get("/api/health/")
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "database": True}
+    body = response.json()
+    assert body["status"] == "ok"
+    assert body["database"] is True
+    assert body["gemini"] == {
+        "key_configured": False,
+        "provider": "rules",
+        "model": "models/gemini-3.8-flash",
+    }
+    assert "api_key" not in body["gemini"]
+    assert body["sarvam"]["key_configured"] is False
+    assert "api_key" not in body["sarvam"]
+    assert body["sarvam"]["stt_model"] == "saaras:v4"
+    assert body["sarvam"]["stt_mode"] == "transcribe"
 
 
 def test_custom_user_uses_email_login_and_lowercases():

@@ -1553,3 +1553,23 @@ Backend application endpoints are implemented: authentication, profile, targets,
 The React client in `frontend/` covers sign-in, profile, today, meals, targets, chat, and settings. Tokens are kept in `sessionStorage` for this first client. That storage choice is temporary.
 
 Still open: server speech-to-text, image identification, object storage, timezone handling, and the final browser token design.
+
+47. RECIPES, PLANS, AND GROCERIES
+
+**Date:** 2026-10-22
+
+Decision 005 adds these capabilities and narrows the earlier note that a recommendation engine and recipe features were only future work. Pantry inventory remains excluded.
+
+The recipe catalogue is the original Swasthya collection loaded by `python manage.py load_recipes`. Ingredient nutrition is calculated with the existing nutrition service. Unmapped ingredients make that recipe's nutrition incomplete.
+
+Weekly plans live in `MealPlan` and `PlannedMeal`. Logged food stays in `Meal` and `MealItem`. Grocery rows live on the user's `GroceryList`. Private objects are limited to the authenticated user.
+
+The React app uses a public landing page at `/` and signed-in routes for home, today, log, meals, recipes, planner, groceries, suggestions, targets, profile, and settings. The visual palette is cream-and-brown, defined in `frontend/src/index.css` and `DESIGN.md.md`: cream `#FAF7EE` backgrounds, off-white cards, and brown UI accents (`#5B4636`, `#463326`, `#7A5C46`). Green is not used in interface chrome. The top bar is translucent.
+
+48. NARROWED MVP
+
+**Date:** 2026-10-22
+
+Decision 006 narrows the website that users see. The immediate routes are the landing page, login, registration, profile setup, profile, and log meal. Log meal includes the existing chat and the verified-food search.
+
+Recipe browsing, weekly planning, groceries, suggestions, and the separate today dashboard are deferred. The Django models and APIs from Decision 005 remain. They are not part of the primary navigation.

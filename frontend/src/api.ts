@@ -40,12 +40,16 @@ export function clearTokens() {
 async function parseBody(response: Response) {
   const text = await response.text();
   if (!text) return null;
-  return JSON.parse(text) as unknown;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
 }
 
 export async function api<T>(path: string, options: RequestInit = {}, allowRefresh = true): Promise<T> {
   const headers = new Headers(options.headers);
-  if (options.body && !headers.has("Content-Type")) {
+  if (options.body && !(options.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   const access = accessToken();

@@ -12,6 +12,17 @@ EMPTY_PROFILE = {
     "weight_kg": None,
     "activity_level": "",
     "goal": "",
+    "allergies_status": "",
+    "allergies": [],
+    "dislikes": [],
+    "diet_pattern": "",
+    "preferred_cuisines": [],
+    "preferred_language": "en",
+    "appearance": "light",
+    "restrictions": [],
+    "likes": [],
+    "notes": "",
+    "autoplay_replies": False,
 }
 
 

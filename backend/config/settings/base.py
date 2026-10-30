@@ -3,18 +3,24 @@
 Secrets and environment-specific values come from environment variables
 (see the root .env.example). Nothing secret is hard-coded here.
 """
+import os
 from datetime import timedelta
 from pathlib import Path
 
 import environ
+
+from config.envfile import fill_blank_env_from_file
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # backend/
 REPO_ROOT = BASE_DIR.parent  # repository root, where the one canonical .env lives
 
 env = environ.Env()
 # Load the root .env if it exists (it is git-ignored; the template is the root
-# .env.example). Variables already set in the real environment win.
+# .env.example). A non-empty process value wins. A blank process value does not
+# hide a value saved in the file.
+fill_blank_env_from_file(REPO_ROOT / ".env")
 environ.Env.read_env(REPO_ROOT / ".env", overwrite=False)
+os.environ.setdefault("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 DEBUG = False
@@ -42,6 +48,7 @@ INSTALLED_APPS = [
     "apps.progress",
     "apps.conversations",
     "apps.agent",
+    "apps.kitchen",
 ]
 
 MIDDLEWARE = [
@@ -88,6 +95,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
 
+PASSWORD_RESET_TIMEOUT = env.int("PASSWORD_RESET_TIMEOUT", default=60 * 60 * 24)
+FRONTEND_URL = env("FRONTEND_URL", default="http://127.0.0.1:5173")
+EMAIL_BACKEND = env("EMAIL_BACKEND", default="django.core.mail.backends.console.EmailBackend")
+EMAIL_HOST = env("EMAIL_HOST", default="")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_HOST_USER = env("EMAIL_HOST_USER", default="")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD", default="")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="Swasthya <noreply@localhost>")
+
 LANGUAGE_CODE = "en-us"
 # Timestamps are stored in UTC.
 TIME_ZONE = "UTC"
@@ -117,10 +134,23 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
-# Optional. When this is empty, the text agent uses the rules provider.
-# Browser storage of these tokens is still an open decision.
+# Optional text-agent providers. OpenRouter is used when OPENROUTER_API_KEY is set;
+# otherwise Gemini when GEMINI_API_KEY is set; otherwise the rules provider.
+OPENROUTER_API_KEY = env("OPENROUTER_API_KEY", default="")
+OPENROUTER_BASE_URL = env("OPENROUTER_BASE_URL", default="https://openrouter.ai/api/v1")
+OPENROUTER_MODEL = env("OPENROUTER_MODEL", default="openai/gpt-4o-mini")
+OPENROUTER_HTTP_REFERER = env("OPENROUTER_HTTP_REFERER", default="http://127.0.0.1:5173")
+OPENROUTER_APP_TITLE = env("OPENROUTER_APP_TITLE", default="Swasthya")
 GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
-GEMINI_MODEL = env("GEMINI_MODEL", default="gemini-2.5-flash")
+GEMINI_MODEL = env("GEMINI_MODEL", default="models/gemini-3.8-flash")
+# Daily calorie goal is met when intake is within this fraction of the active calorie target.
+GOAL_CALORIE_TOLERANCE = env("GOAL_CALORIE_TOLERANCE", default="0.05")
+SARVAM_API_KEY = env("SARVAM_API_KEY", default="")
+SARVAM_STT_URL = env("SARVAM_STT_URL", default="https://api.sarvam.ai/speech-to-text")
+SARVAM_STT_MODEL = env("SARVAM_STT_MODEL", default="saaras:v4")
+SARVAM_STT_MODE = env("SARVAM_STT_MODE", default="transcribe")
+SARVAM_TTS_URL = env("SARVAM_TTS_URL", default="https://api.sarvam.ai/text-to-speech")
+SARVAM_TTS_MODEL = env("SARVAM_TTS_MODEL", default="bulbul:v3")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Swasthya API",

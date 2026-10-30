@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 import { api, clearTokens, saveTokens } from "./api";
 
 export type User = { id: number; email: string; name: string };
@@ -14,6 +15,7 @@ type SessionValue = {
 const SessionContext = createContext<SessionValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const [user, setUser] = useState<User | null>(null);
   const [ready, setReady] = useState(false);
 
@@ -44,6 +46,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     const refresh = sessionStorage.getItem("swasthya.refresh");
+    navigate("/", { replace: true });
     try {
       if (refresh) {
         await api("/api/auth/logout/", { method: "POST", body: JSON.stringify({ refresh }) });

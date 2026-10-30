@@ -16,6 +16,11 @@ class TargetSerializer(serializers.ModelSerializer):
             "carbohydrates_g",
             "fat_g",
             "fibre_g",
+            "weekly_calories",
+            "weekly_protein_g",
+            "weekly_carbohydrates_g",
+            "weekly_fat_g",
+            "weekly_fibre_g",
         )
 
 
@@ -25,3 +30,8 @@ class CustomizeSerializer(serializers.Serializer):
     carbohydrates_g = serializers.DecimalField(max_digits=8, decimal_places=2, min_value=0)
     fat_g = serializers.DecimalField(max_digits=8, decimal_places=2, min_value=0)
     fibre_g = serializers.DecimalField(max_digits=8, decimal_places=2, min_value=0)
+    weekly_calories = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=1, required=False, allow_null=True)
+    weekly_protein_g = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False, allow_null=True)
+    weekly_carbohydrates_g = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False, allow_null=True)
+    weekly_fat_g = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False, allow_null=True)
+    weekly_fibre_g = serializers.DecimalField(max_digits=10, decimal_places=2, min_value=0, required=False, allow_null=True)

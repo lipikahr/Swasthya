@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from pgvector.django import VectorField
 
@@ -39,6 +40,66 @@ class Food(models.Model):
 
     def __str__(self) -> str:
         return f"{self.food_code} {self.food_name}"
+
+
+class FoodAlias(models.Model):
+    """A name that points at a canonical Anuvaad food. Unverified aliases are not catalogue rows."""
+
+    class Source(models.TextChoices):
+        CURATED = "curated", "Curated"
+        USER = "user", "User"
+        MODEL = "model", "Model"
+
+    food = models.ForeignKey(Food, on_delete=models.CASCADE, related_name="aliases")
+    alias_text = models.CharField(max_length=255)
+    language = models.CharField(max_length=16)
+    normalized_alias = models.CharField(max_length=255, db_index=True)
+    source = models.CharField(max_length=16, choices=Source.choices, default=Source.CURATED)
+    verified = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["language", "alias_text", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["food", "normalized_alias", "language"],
+                name="unique_food_alias_per_language",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        from .normalize import normalize_alias
+
+        self.alias_text = str(self.alias_text or "").strip()
+        self.normalized_alias = normalize_alias(self.alias_text)
+        super().save(*args, **kwargs)
+
+    def __str__(self) -> str:
+        return f"{self.language}:{self.alias_text} -> {self.food.food_code}"
+
+
+class UserFood(models.Model):
+    """Personal food. Nutrition is user-provided and is not an Anuvaad record."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="user_foods")
+    name = models.CharField(max_length=200)
+    ingredients = models.TextField(blank=True, default="")
+    serving_amount = models.DecimalField(max_digits=12, decimal_places=3)
+    serving_unit = models.CharField(max_length=64)
+    energy_kcal = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    protein_g = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    carb_g = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    fat_g = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    fibre_g = models.DecimalField(max_digits=12, decimal_places=3, null=True, blank=True)
+    nutrition_source = models.CharField(max_length=32, default="user_provided")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["name", "id"]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} {self.name}"
 
 
 class NutrientValues(models.Model):

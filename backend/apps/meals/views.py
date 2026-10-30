@@ -5,13 +5,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.progress.goal import sync_achievement_for_day
+
 from .models import Meal
 from .serializers import MealSerializer, MealWriteSerializer
 from .services import create_food_log, replace_meal_items
 
 
 def _own_meals(user):
-    return Meal.objects.filter(user=user).prefetch_related("items__food")
+    return Meal.objects.filter(user=user).prefetch_related("items__food", "items__user_food")
 
 
 class MealListCreateView(APIView):
@@ -59,9 +61,12 @@ class MealDetailView(APIView):
             replace_meal_items(meal=meal, items=item_serializer.validated_data["items"])
         meal.save(update_fields=["meal_type", "timestamp"])
         meal = _own_meals(request.user).get(pk=meal.pk)
+        sync_achievement_for_day(request.user, meal.timestamp.date())
         return Response(MealSerializer(meal).data)
 
     def delete(self, request, meal_id):
         meal = get_object_or_404(Meal.objects.filter(user=request.user), pk=meal_id)
+        day = meal.timestamp.date()
         meal.delete()
+        sync_achievement_for_day(request.user, day)
         return Response(status=204)

@@ -111,3 +111,54 @@ def _scale(nutrients: dict, multiplier: Decimal) -> dict:
         value = nutrients[name]
         scaled[name] = None if value is None else value * multiplier
     return scaled
+
+
+def calculate_user_food(user_food, quantity, unit: str) -> dict:
+    if quantity is None or (isinstance(quantity, str) and quantity.strip() == ""):
+        raise NutritionError("missing_quantity", "A quantity is required.")
+    try:
+        amount = Decimal(str(quantity))
+    except (InvalidOperation, TypeError) as exc:
+        raise NutritionError("invalid_quantity", "Quantity must be a number.") from exc
+    if amount <= 0:
+        raise NutritionError("invalid_quantity", "Quantity must be greater than zero.")
+    unit_name = (unit or "").strip().lower()
+    serving_unit = (user_food.serving_unit or "").strip().lower()
+    serving_amount = Decimal(str(user_food.serving_amount))
+    if serving_amount <= 0:
+        raise NutritionError("invalid_quantity", "Serving amount must be greater than zero.")
+    if unit_name in WEIGHT_TO_GRAMS and serving_unit in WEIGHT_TO_GRAMS:
+        grams = amount * WEIGHT_TO_GRAMS[unit_name]
+        serving_grams = serving_amount * WEIGHT_TO_GRAMS[serving_unit]
+        multiplier = grams / serving_grams
+        used_unit = unit_name
+    elif unit_name == serving_unit:
+        multiplier = amount / serving_amount
+        used_unit = user_food.serving_unit
+    else:
+        raise NutritionError(
+            "unsupported_unit",
+            f"{user_food.name} can be logged in {user_food.serving_unit}. {unit} is not a matching unit.",
+        )
+    nutrients = {name: None for name in NUTRIENT_FIELDS}
+    mapping = {
+        "energy_kcal": user_food.energy_kcal,
+        "protein_g": user_food.protein_g,
+        "carb_g": user_food.carb_g,
+        "fat_g": user_food.fat_g,
+        "fibre_g": user_food.fibre_g,
+    }
+    for name, value in mapping.items():
+        nutrients[name] = None if value is None else Decimal(str(value)) * multiplier
+    return {
+        "food_code": None,
+        "food_name": user_food.name,
+        "quantity": amount,
+        "unit": used_unit,
+        "basis": "user_serving",
+        "dataset_version": "user_provided",
+        "calculation_version": CALCULATION_VERSION,
+        "nutrients": nutrients,
+        "user_food_id": user_food.id,
+        "provenance": "user_provided",
+    }

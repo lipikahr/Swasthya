@@ -1,0 +1,7 @@
+Swasthya health carousel images
+
+01-healthy-meal.jpg, 02-ingredients.jpg, 03-balanced-plate.jpg
+  Existing Swasthya landing photographs reused for the authentication background.
+
+04-body-measurements.jpg, 05-nutrition-tracking.jpg, 06-fitness-walk.jpg, 07-hydration.jpg
+  Original still-life and wellness photographs created for Swasthya so the set stays visually cohesive with the landing food photography. Stored locally; no remote image API.

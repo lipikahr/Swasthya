@@ -215,7 +215,15 @@ def test_text_agent_logs_only_after_a_single_food_is_resolved(api_client, make_u
     _auth(api_client, user)
     logged = api_client.post("/api/agent/chat/", {"message": "I ate 2 idlis for breakfast"}, format="json")
     assert logged.status_code == 200
-    assert logged.json()["status"] == "SUCCESS"
+    assert logged.json()["status"] == "AWAITING_CONFIRMATION"
+    assert Meal.objects.filter(user=user).count() == 0
+    confirmed = api_client.post(
+        "/api/agent/confirm/",
+        {"conversation_id": logged.json()["conversation_id"], "meal_type": "breakfast"},
+        format="json",
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "SUCCESS"
     meal = Meal.objects.get(user=user)
     assert meal.meal_type == "breakfast"
     assert meal.items.get().food.food_code == "IDLI"
@@ -240,5 +248,13 @@ def test_text_agent_logs_only_after_a_single_food_is_resolved(api_client, make_u
         format="json",
     )
     assert spoken.status_code == 200
-    assert spoken.json()["status"] == "SUCCESS"
+    assert spoken.json()["status"] == "AWAITING_CONFIRMATION"
+    assert Meal.objects.filter(user=other).count() == 0
+    spoken_confirm = api_client.post(
+        "/api/agent/confirm/",
+        {"conversation_id": spoken.json()["conversation_id"], "meal_type": "breakfast"},
+        format="json",
+    )
+    assert spoken_confirm.status_code == 200
+    assert spoken_confirm.json()["status"] == "SUCCESS"
     assert Meal.objects.filter(user=other).count() == 1

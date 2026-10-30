@@ -21,9 +21,22 @@ class ConversationSerializer(serializers.ModelSerializer):
         fields = ("id", "created_at", "updated_at")
 
 
+def is_catalogue_dump(content: str) -> bool:
+    """A clarification that lists a catalogue slice is not a conversation turn to show."""
+    text = content or ""
+    if not text.startswith("Which food did you mean?"):
+        return False
+    return text.count(",") >= 3
+
+
 class ConversationDetailSerializer(ConversationSerializer):
     messages = MessageSerializer(many=True, read_only=True)
     actions = AgentActionSerializer(many=True, read_only=True)
 
     class Meta(ConversationSerializer.Meta):
         fields = ConversationSerializer.Meta.fields + ("messages", "actions")
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        data["messages"] = [message for message in data["messages"] if not is_catalogue_dump(message.get("content") or "")]
+        return data

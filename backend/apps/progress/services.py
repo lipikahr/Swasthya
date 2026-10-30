@@ -1,7 +1,10 @@
 """Daily totals and streaks are derived from saved meals. They are not a second record of what was eaten."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
+
+from django.db.models import Count
+from django.db.models.functions import Coalesce
 
 from django.utils import timezone
 
@@ -109,3 +112,32 @@ def _as_date(value) -> date:
     if isinstance(value, date):
         return value
     return value.date()
+
+
+def most_logged_foods(user, *, days: int = 28, limit: int = 8) -> list[dict]:
+    start = timezone.now().date() - timedelta(days=days - 1)
+    rows = (
+        MealItem.objects.filter(meal__user=user, meal__timestamp__date__gte=start)
+        .annotate(display_name=Coalesce("food__food_name", "user_food__name"))
+        .values("display_name")
+        .annotate(times=Count("id"))
+        .order_by("-times", "display_name")[:limit]
+    )
+    return [{"name": row["display_name"], "times": row["times"]} for row in rows if row["display_name"]]
+
+
+def weekly_consumed(user, start: date, end: date) -> dict:
+    items = MealItem.objects.filter(meal__user=user, meal__timestamp__date__gte=start, meal__timestamp__date__lte=end)
+    totals = {name: Decimal("0") for name in NUTRIENT_FIELDS}
+    missing = set()
+    for item in items:
+        snapshot = item.nutrition_snapshot or {}
+        for name in NUTRIENT_FIELDS:
+            raw = snapshot.get(name)
+            if raw is None:
+                missing.add(name)
+            elif name not in missing:
+                totals[name] += Decimal(str(raw))
+    for name in missing:
+        totals[name] = None
+    return totals

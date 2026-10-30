@@ -16,6 +16,11 @@ class NutritionTarget(models.Model):
     carbohydrates_g = models.DecimalField(max_digits=8, decimal_places=2)
     fat_g = models.DecimalField(max_digits=8, decimal_places=2)
     fibre_g = models.DecimalField(max_digits=8, decimal_places=2)
+    weekly_calories = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weekly_protein_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weekly_carbohydrates_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weekly_fat_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    weekly_fibre_g = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
 
     class Meta:
         ordering = ["-effective_from"]

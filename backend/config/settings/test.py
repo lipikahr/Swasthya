@@ -22,3 +22,10 @@ from .base import *  # noqa: E402,F401,F403
 
 DEBUG = False
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]  # fast tests only
+EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+FRONTEND_URL = "http://testserver"
+# Chat tests use the rules provider. Live keys in the root .env must not reach providers.
+OPENROUTER_API_KEY = ""
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+GEMINI_API_KEY = ""
+SARVAM_API_KEY = ""

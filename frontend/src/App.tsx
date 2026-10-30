@@ -1,83 +1,68 @@
-import { useEffect, useState } from "react";
-import { NavLink, Navigate, Outlet, Route, Routes } from "react-router-dom";
-import { LoginPage, RegisterPage } from "./auth-pages";
-import { api } from "./api";
-import {
-  ChatPage,
-  DashboardPage,
-  MealDetailPage,
-  MealsPage,
-  OnboardingPage,
-  SettingsPage,
-  TargetsPage,
-  profileComplete,
-  type Profile,
-} from "./pages";
-import { useSession } from "./session";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { AppShell } from "./app-shell";
+import { AuthScreen, ResetPasswordPage } from "./auth-pages";
+import { AuthLayout } from "./health-carousel";
+import { NutritionDashboard } from "./dashboard-page";
+import { DiaryPage } from "./diary-page";
+import { LogMealPage } from "./log-meal-page";
+import { MealDetailPage } from "./pages";
+import { PlanPage } from "./plan-page";
+import { ProfilePage } from "./profile-page";
+import { RequireAuth, RequireCompleteProfile } from "./protected-route";
+import { SettingsPage } from "./settings-page";
+import { LandingPage } from "./landing-page";
+import { SiteFooter } from "./site-footer";
+import { SiteNav } from "./site-nav";
+import { TodayPage } from "./today-page";
 
-function Guard() {
-  const { user, ready } = useSession();
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [checked, setChecked] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    api<Profile>("/api/profile/")
-      .then(setProfile)
-      .finally(() => setChecked(true));
-  }, [user]);
-
-  if (!ready || (user && !checked)) return <p className="muted page">Loading…</p>;
-  if (!user) return <Navigate to="/login" replace />;
-  if (!profile || !profileComplete(profile)) return <Navigate to="/onboarding" replace />;
-  return <Outlet />;
-}
-
-function Shell() {
+function SiteFrame() {
   return (
     <div className="shell">
-      <aside>
-        <p className="mark">Swasthya</p>
-        <nav>
-          <NavLink to="/" end>
-            Today
-          </NavLink>
-          <NavLink to="/chat">Log</NavLink>
-          <NavLink to="/meals">Meals</NavLink>
-          <NavLink to="/targets">Targets</NavLink>
-          <NavLink to="/settings">Settings</NavLink>
-        </nav>
-      </aside>
+      <SiteNav />
       <main>
         <Outlet />
       </main>
+      <SiteFooter />
     </div>
   );
-}
-
-function SignedIn() {
-  const { user, ready } = useSession();
-  if (!ready) return <p className="muted page">Loading…</p>;
-  if (!user) return <Navigate to="/login" replace />;
-  return <Outlet />;
 }
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route element={<SignedIn />}>
-        <Route path="/onboarding" element={<OnboardingPage />} />
+      <Route element={<SiteFrame />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route element={<AuthLayout />}>
+          <Route path="/login" element={<AuthScreen />} />
+          <Route path="/register" element={<AuthScreen />} />
+          <Route path="/forgot" element={<AuthScreen />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
+        </Route>
+        <Route path="/home" element={<Navigate to="/" replace />} />
+        <Route path="/recipes/*" element={<Navigate to="/" replace />} />
+        <Route path="/groceries" element={<Navigate to="/" replace />} />
+        <Route path="/suggestions" element={<Navigate to="/" replace />} />
+        <Route path="/planner" element={<Navigate to="/plan" replace />} />
       </Route>
-      <Route element={<Guard />}>
-        <Route element={<Shell />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="meals" element={<MealsPage />} />
-          <Route path="meals/:id" element={<MealDetailPage />} />
-          <Route path="targets" element={<TargetsPage />} />
-          <Route path="chat" element={<ChatPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+      <Route element={<RequireAuth />}>
+        <Route path="/onboarding" element={<ProfilePage />} />
+        <Route element={<RequireCompleteProfile />}>
+          <Route element={<AppShell />}>
+            <Route path="/today" element={<TodayPage />} />
+            <Route path="/plan" element={<PlanPage />} />
+            <Route path="/coach" element={<LogMealPage />} />
+            <Route path="/diary" element={<DiaryPage />} />
+            <Route path="/progress" element={<NutritionDashboard />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/meals/:id" element={<MealDetailPage />} />
+          </Route>
+          <Route path="/log" element={<Navigate to="/coach" replace />} />
+          <Route path="/chat" element={<Navigate to="/coach" replace />} />
+          <Route path="/dashboard" element={<Navigate to="/progress" replace />} />
+          <Route path="/profile" element={<Navigate to="/settings" replace />} />
+          <Route path="/targets" element={<Navigate to="/settings?tab=goals" replace />} />
+          <Route path="/meals" element={<Navigate to="/diary" replace />} />
+          <Route path="/planner" element={<Navigate to="/plan" replace />} />
         </Route>
       </Route>
     </Routes>

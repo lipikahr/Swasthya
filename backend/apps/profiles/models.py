@@ -28,5 +28,27 @@ class UserProfile(models.Model):
     activity_level = models.CharField(max_length=32, choices=Activity.choices, blank=True)
     goal = models.CharField(max_length=16, choices=Goal.choices, blank=True)
 
+    class Diet(models.TextChoices):
+        VEGETARIAN = "vegetarian", "Vegetarian"
+        VEGAN = "vegan", "Vegan"
+        NON_VEGETARIAN = "non_vegetarian", "Non-vegetarian"
+
+    class AllergyStatus(models.TextChoices):
+        UNKNOWN = "", "Not yet provided"
+        NONE = "none", "No allergies declared"
+        LISTED = "listed", "Allergies listed"
+
+    allergies_status = models.CharField(max_length=16, choices=AllergyStatus.choices, blank=True, default="")
+    allergies = models.JSONField(default=list, blank=True)
+    dislikes = models.JSONField(default=list, blank=True)
+    diet_pattern = models.CharField(max_length=32, choices=Diet.choices, blank=True)
+    preferred_cuisines = models.JSONField(default=list, blank=True)
+    preferred_language = models.CharField(max_length=8, blank=True, default="en")
+    appearance = models.CharField(max_length=16, blank=True, default="light")
+    restrictions = models.JSONField(default=list, blank=True)
+    likes = models.JSONField(default=list, blank=True)
+    notes = models.TextField(blank=True, default="")
+    autoplay_replies = models.BooleanField(default=False)
+
     def __str__(self) -> str:
         return f"Profile {self.user_id}"

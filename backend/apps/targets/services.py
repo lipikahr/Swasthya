@@ -9,6 +9,21 @@ from apps.profiles.models import UserProfile
 from .engine import TargetError, age_in_years, suggest_targets
 from .models import NutritionTarget
 
+WEEKLY_FIELDS = (
+    "weekly_calories",
+    "weekly_protein_g",
+    "weekly_carbohydrates_g",
+    "weekly_fat_g",
+    "weekly_fibre_g",
+)
+DAILY_TO_WEEKLY = {
+    "calories": "weekly_calories",
+    "protein_g": "weekly_protein_g",
+    "carbohydrates_g": "weekly_carbohydrates_g",
+    "fat_g": "weekly_fat_g",
+    "fibre_g": "weekly_fibre_g",
+}
+
 
 def current_target(user):
     return NutritionTarget.objects.filter(user=user, effective_until__isnull=True).first()
@@ -60,6 +75,7 @@ def _replace_open_target(user, source: str, numbers: dict) -> NutritionTarget:
     now = timezone.now()
     with transaction.atomic():
         NutritionTarget.objects.filter(user=user, effective_until__isnull=True).update(effective_until=now)
+        weekly = {name: numbers.get(name) for name in WEEKLY_FIELDS}
         return NutritionTarget.objects.create(
             user=user,
             source=source,
@@ -69,4 +85,28 @@ def _replace_open_target(user, source: str, numbers: dict) -> NutritionTarget:
             carbohydrates_g=numbers["carbohydrates_g"],
             fat_g=numbers["fat_g"],
             fibre_g=numbers["fibre_g"],
+            **weekly,
         )
+
+
+def weekly_budget(target) -> dict | None:
+    if target is None:
+        return None
+    explicit = target.weekly_calories is not None
+    if explicit:
+        return {
+            "calories": target.weekly_calories,
+            "protein_g": target.weekly_protein_g,
+            "carbohydrates_g": target.weekly_carbohydrates_g,
+            "fat_g": target.weekly_fat_g,
+            "fibre_g": target.weekly_fibre_g,
+            "derived_from_daily": False,
+        }
+    return {
+        "calories": target.calories * 7,
+        "protein_g": target.protein_g * 7,
+        "carbohydrates_g": target.carbohydrates_g * 7,
+        "fat_g": target.fat_g * 7,
+        "fibre_g": target.fibre_g * 7,
+        "derived_from_daily": True,
+    }
