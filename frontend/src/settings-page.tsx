@@ -4,7 +4,14 @@ import { api, ApiError } from "./api";
 import { applyAppearance } from "./appearance";
 import { SUPPORTED_LANGUAGES } from "./languages";
 import type { Profile } from "./pages";
+import { MonitorIcon, MoonIcon, SunIcon } from "./icons";
 import { useSession } from "./session";
+
+const APPEARANCE_MODES = [
+  ["light", "Light", SunIcon],
+  ["dark", "Dark", MoonIcon],
+  ["system", "System", MonitorIcon],
+] as const;
 
 type Target = {
   source: string;
@@ -171,34 +178,41 @@ export function SettingsPage() {
       {notice ? <p className="banner">{notice}</p> : null}
 
       {tab === "account" && profile ? (
-        <form
-          className="card stack"
-          onSubmit={(event) => {
-            event.preventDefault();
-            void patchProfile({ appearance: profile.appearance || "light" }, "Appearance saved.");
-          }}
-        >
-          <p><strong>{user?.name}</strong></p>
-          <p className="muted">{user?.email}</p>
-          <fieldset>
-            <legend>Appearance</legend>
-            {(["light", "dark", "system"] as const).map((mode) => (
-              <label key={mode}>
-                <input
-                  type="radio"
-                  name="appearance"
-                  checked={(profile.appearance || "light") === mode}
-                  onChange={() => setProfile({ ...profile, appearance: mode })}
-                />
-                {mode[0].toUpperCase() + mode.slice(1)}
-              </label>
-            ))}
-          </fieldset>
-          <div className="row-actions">
-            <button type="submit">Save appearance</button>
-            <button type="button" className="ghost" onClick={() => void logout()}>Sign out</button>
-          </div>
-        </form>
+        <div className="stack">
+          <section className="card stack">
+            <p><strong>{user?.name}</strong></p>
+            <p className="muted">{user?.email}</p>
+            <div className="row-actions">
+              <button type="button" className="ghost" onClick={() => void logout()}>Sign out</button>
+            </div>
+          </section>
+          <form
+            className="card stack"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void patchProfile({ appearance: profile.appearance || "light" }, "Appearance saved.");
+            }}
+          >
+            <fieldset className="appearance-choices">
+              <legend>Appearance</legend>
+              {APPEARANCE_MODES.map(([mode, label, Icon]) => (
+                <label key={mode}>
+                  <input
+                    type="radio"
+                    name="appearance"
+                    checked={(profile.appearance || "light") === mode}
+                    onChange={() => setProfile({ ...profile, appearance: mode })}
+                  />
+                  <Icon size={28} />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </fieldset>
+            <div className="row-actions">
+              <button type="submit">Save appearance</button>
+            </div>
+          </form>
+        </div>
       ) : null}
 
       {tab === "goals" ? (
@@ -331,17 +345,22 @@ export function SettingsPage() {
             );
           }}
         >
-          <label>
-            Preferred language
-            <select
-              value={profile.preferred_language || "en"}
-              onChange={(event) => setProfile({ ...profile, preferred_language: event.target.value })}
-            >
-              {SUPPORTED_LANGUAGES.map(([code, label]) => (
-                <option key={code} value={code}>{label}</option>
-              ))}
-            </select>
-          </label>
+          <fieldset className="language-grid">
+            <legend>Preferred language</legend>
+            {SUPPORTED_LANGUAGES.map(([code, english, native]) => (
+              <label key={code}>
+                <input
+                  type="radio"
+                  name="preferred_language"
+                  value={code}
+                  checked={(profile.preferred_language || "en") === code}
+                  onChange={() => setProfile({ ...profile, preferred_language: code })}
+                />
+                <span className="language-native" lang={code} dir="auto">{native}</span>
+                <span className="language-english">{english}</span>
+              </label>
+            ))}
+          </fieldset>
           <p className="muted">Replies stay on the page. Voice input is still available in Coach.</p>
           <button type="submit">Save voice</button>
         </form>

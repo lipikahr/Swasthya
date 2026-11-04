@@ -210,19 +210,11 @@ export function useLandingMotion(rootRef: RefObject<HTMLElement | null>) {
       const closing = root.querySelector<HTMLElement>("#start");
       const panel = closing?.querySelector<HTMLElement>(".lp-close-panel");
       if (closing && panel) {
-        const corner = () => (window.innerWidth < 901 ? 14 : 32);
-        const rise = () => (window.innerWidth < 901 ? 150 : 300);
         gsap.timeline({
           scrollTrigger: { trigger: closing, start: "top 95%", end: "top 15%", scrub: 0.6, invalidateOnRefresh: true },
         }).fromTo(panel,
-          { scale: 0.9, y: 60, borderRadius: () => `${corner()}px` },
-          {
-            scale: 1,
-            y: 0,
-            borderRadius: () => `${panel.offsetWidth / 2}px ${panel.offsetWidth / 2}px ${corner()}px ${corner()}px / ${rise()}px ${rise()}px ${corner()}px ${corner()}px`,
-            ease: "power2.out",
-            duration: 1,
-          });
+          { scale: 0.96, y: 28 },
+          { scale: 1, y: 0, ease: "power2.out", duration: 1 });
       }
 
       return () => {

@@ -103,6 +103,12 @@ export const AppleIcon = (p: IconProps) => (
     <path d="M12 8.5c0-2 .8-3.6 2.5-4.5" />
   </Base>
 );
+export const MonitorIcon = (p: IconProps) => (
+  <Base {...p}>
+    <rect x="3" y="4" width="18" height="12" rx="2" />
+    <path d="M8 20h8M12 16v4" />
+  </Base>
+);
 export const MoonIcon = (p: IconProps) => (
   <Base {...p}>
     <path d="M19.5 14.5A7.5 7.5 0 0 1 9.5 4.5a7.5 7.5 0 1 0 10 10Z" />

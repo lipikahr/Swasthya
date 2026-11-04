@@ -196,25 +196,29 @@ export function PlanPage() {
           <h1>Today’s food plan</h1>
           <p className="muted">Planned foods are not eaten until you confirm them in Coach. Add your own items, or generate a day that follows your diet and cuisine.</p>
         </div>
-        <button type="button" onClick={() => void generate()} disabled={busy}>Generate / regenerate</button>
       </header>
-      <div className="diary-toolbar">
-        <button type="button" className="icon-nav ghost" aria-label="Previous day" onClick={() => setDate(shiftDay(date, -1))}><ChevronLeftIcon /></button>
-        <label>
-          Date
-          <input type="date" value={date} onChange={(event) => setDate(event.target.value)} />
-        </label>
-        <button type="button" className="icon-nav ghost" aria-label="Next day" onClick={() => setDate(shiftDay(date, 1))}><ChevronRightIcon /></button>
-        <p className="muted">{plan?.target_calories ? `${displayKcal(plan.totals?.energy_kcal)} / ${displayKcal(plan.target_calories)} kcal planned` : "No calorie target yet."}</p>
-      </div>
-      {chips.length ? (
-        <div className="plan-chips">
-          {chips.map((chip) => <span key={chip} className="chip"><LeafIcon size={14} /> {chip}</span>)}
-          <Link to="/settings?tab=diet">Edit preferences</Link>
+      <section className="card plan-controls">
+        <div className="plan-controls-top">
+          <div className="plan-date">
+            <span className="plan-date-label">Date</span>
+            <div className="plan-date-row">
+              <button type="button" className="icon-nav ghost" aria-label="Previous day" onClick={() => setDate(shiftDay(date, -1))}><ChevronLeftIcon /></button>
+              <input type="date" value={date} onChange={(event) => setDate(event.target.value)} aria-label="Plan date" />
+              <button type="button" className="icon-nav ghost" aria-label="Next day" onClick={() => setDate(shiftDay(date, 1))}><ChevronRightIcon /></button>
+            </div>
+          </div>
+          <p className="plan-calories muted">{plan?.target_calories ? `${displayKcal(plan.totals?.energy_kcal)} / ${displayKcal(plan.target_calories)} kcal planned` : "No calorie target yet."}</p>
+          <button type="button" className="plan-generate" onClick={() => void generate()} disabled={busy}>Generate / regenerate</button>
         </div>
-      ) : (
-        <p className="muted">Set diet, cuisine, and likes in <Link to="/settings?tab=diet">Settings</Link> so generated plans can follow them.</p>
-      )}
+        {chips.length ? (
+          <div className="plan-chips">
+            {chips.map((chip) => <span key={chip} className="chip"><LeafIcon size={14} /> {chip}</span>)}
+            <Link className="text-link" to="/settings?tab=diet">Edit preferences</Link>
+          </div>
+        ) : (
+          <p className="muted">Set diet, cuisine, and likes in <Link to="/settings?tab=diet">Settings</Link> so generated plans can follow them.</p>
+        )}
+      </section>
       {error ? <p className="banner error" role="alert">{error}</p> : null}
       {plan?.limitation ? <p className="banner">{plan.limitation}</p> : null}
       <form className="card plan-composer" onSubmit={(event) => void addItem(event)}>

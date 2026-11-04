@@ -229,19 +229,35 @@ export function NutritionDashboard() {
             })}
           </div>
           <p className="muted">Target source: {source}. {progress.meal_count} saved meal{progress.meal_count === 1 ? "" : "s"}.</p>
-          <p className="eyebrow"><FlameIcon /> Logging streaks</p>
-          <p className="muted">{data.streaks.weekly} day{data.streaks.weekly === 1 ? "" : "s"} this week · {data.streaks.monthly} day{data.streaks.monthly === 1 ? "" : "s"} this month. {data.streaks.rule}</p>
+          <div className="progress-block">
+            <p className="eyebrow"><FlameIcon /> Logging streaks</p>
+            <div className="streak-stats">
+              <div>
+                <strong>{data.streaks.weekly}</strong>
+                <span>{data.streaks.weekly === 1 ? "Day" : "Days"} this week</span>
+              </div>
+              <div>
+                <strong>{data.streaks.monthly}</strong>
+                <span>{data.streaks.monthly === 1 ? "Day" : "Days"} this month</span>
+              </div>
+            </div>
+            <p className="muted">{data.streaks.rule}</p>
+          </div>
           {(data.most_logged_foods ?? []).length ? (
-            <div>
-              <p className="eyebrow">Most logged foods (28 days)</p>
-              <ul className="plain">
+            <div className="progress-block">
+              <p className="eyebrow">Most logged foods</p>
+              <p className="muted">Last 28 days</p>
+              <ul className="logged-foods">
                 {data.most_logged_foods?.map((food) => (
-                  <li key={food.name}>{food.name} · {food.times}</li>
+                  <li key={food.name}>
+                    <span>{food.name}</span>
+                    <strong>{food.times}</strong>
+                  </li>
                 ))}
               </ul>
             </div>
           ) : null}
-          <Link to="/settings?tab=goals">Edit goals</Link>
+          <Link className="text-link" to="/settings?tab=goals">Edit goals</Link>
         </aside>
       </div>
     </div>

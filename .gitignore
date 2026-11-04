@@ -99,3 +99,17 @@ desktop.ini
 # unless explicitly approved.
 # -------------------------
 data/raw/
+
+
+# -------------------------
+# Presentation, reference & temporary scratch files
+# -------------------------
+*.pptx
+build_deck.py
+build_html_presentation.py
+presentation.html
+bmsce_logo*
+Logo_temp.png
+backend/scripts/
+backend/*.tmp.txt
+design-reference/
